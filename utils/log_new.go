@@ -13,7 +13,9 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 
+	"github.com/arthurkiller/rollingwriter"
 )
 
 type Logger struct {
@@ -32,16 +34,12 @@ func NewLogger(logfile string, tracelevel int) (*Logger, error) {
 	ProjectLog := new(Logger)
 	ProjectLog.LogFile = logfile
 	ProjectLog.TraceLevel = tracelevel
-	if w, err := ProjectLog.getWriter(); err != nil {
-		return ProjectLog, err
-	} else {
-		ProjectLog.trace = log.New(w, "[filscan---T] ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
-		ProjectLog.info = log.New(w, "[filscan---I] ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
-		ProjectLog.warn = log.New(w, "[filscan---W] ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
-		ProjectLog.error = log.New(w, "[filscan---E] ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Llongfile)
-		return ProjectLog, err
-	}
-
+	w, _ := ProjectLog.getWriter(logfile)
+	ProjectLog.trace = log.New(w, "[T] ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
+	ProjectLog.info = log.New(w, "[I] ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
+	ProjectLog.warn = log.New(w, "[W] ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
+	ProjectLog.error = log.New(w, "[E] ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Llongfile)
+	return ProjectLog, nil
 
 }
 
@@ -49,7 +47,7 @@ func NewMongoDbLogger(logfile string, tracelevel int) (*Logger, error) {
 	templog := new(Logger)
 	templog.LogFile = logfile
 	templog.TraceLevel = tracelevel
-	if w, err := templog.getWriter(); err != nil {
+	if w, err := templog.getWriter(logfile); err != nil {
 		return templog, err
 	} else {
 		templog.trace = log.New(w, "[Mongodb] ", log.Ldate|log.Ltime|log.Lmicroseconds|log.Llongfile)
@@ -99,13 +97,36 @@ func (l *Logger) outputf(logger *log.Logger, tracelevel int, format string, v ..
 	logger.Output(3, s)
 }
 
-func (l *Logger) getWriter() (io.Writer, error) {
-	lf := l.LogFile
-	if lf == "" {
+func (l *Logger) getWriter(logPath string) (io.Writer, error) {
+
+	if logPath == "" {
 		return os.Stdout, nil
 	}
-	return os.OpenFile(l.LogFile,
-		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+
+	dir, name := filepath.Split(logPath)
+	fmt.Println("日志路径为" ,dir,"文件名为%s",name)
+	config := rollingwriter.Config{
+		LogPath:                dir,                         //日志路径
+		TimeTagFormat:          "060102150405",              //时间格式串
+		FileName:               name,                        //日志文件名
+		MaxRemain:              3,                           //配置日志最大存留数
+		RollingPolicy:          rollingwriter.VolumeRolling, //配置滚动策略 norolling timerolling volumerolling
+		RollingTimePattern:     "* * * * * *",               //配置时间滚动策略
+		RollingVolumeSize:      "500M",                      //配置截断文件下限大小
+		WriterMode:             "none",
+		BufferWriterThershould: 256,
+		// Compress will compress log file with gzip
+		Compress: true,
+	}
+
+	var err error
+	writer, err := rollingwriter.NewWriterFromConfig(&config)
+	if err != nil {
+		panic(err)
+	}
+	return writer, nil
+	// return os.OpenFile(logPath,
+	// 	os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 }
 
 func (l *Logger) getTraceInfo(level int) string {

@@ -42,11 +42,11 @@ func GetGoroutineId() int {
 	return id
 }
 
-func (rl *Sexylock) printf(fmts string, args ...interface{}) {
-	if rl.is_debug {
-		Printf("happilock", fmts, args[:]...)
-	}
-}
+// func (rl *Sexylock) printf(fmts string, args ...interface{}) {
+// 	if rl.is_debug {
+// 		Printf("happilock", fmts, args[:]...)
+// 	}
+// }
 
 func (rl *Sexylock) is_owner(id int) bool {
 	rl.inermutx.Lock()
@@ -74,17 +74,17 @@ func (rl *Sexylock) Lock() {
 	rl.inermutx.Unlock()
 
 	if is_owner {
-		rl.printf("YES!!!! I (%d) have locked resource, just return!\n", rl.owner)
+		Log.Errorf("YES!!!! I (%d) have locked resource, just return!\n", rl.owner)
 		return
 	}
 
 	if is_locked {
-		rl.printf("the resouce was locked by %d, %d want a lock, so wating...\n", rl.owner, me)
+		Log.Errorf("the resouce was locked by %d, %d want a lock, so wating...\n", rl.owner, me)
 	}
 
 	rl.mu.Lock()
 	rl.owner = me
-	rl.printf("i(%d) first locked just return\n", rl.owner)
+	Log.Errorf("i(%d) first locked just return\n", rl.owner)
 }
 
 func (rl *Sexylock) Unlock() {
@@ -96,10 +96,10 @@ func (rl *Sexylock) Unlock() {
 	is_owner = rl.owner == me
 	is_locked = rl.owner != 0
 	if is_locked && !is_owner {
-		rl.printf("warning: resouce is locked by:%d, please take attention on this warnning\n", rl.owner)
+		Log.Errorf("warning: resouce is locked by:%d, please take attention on this warnning\n", rl.owner)
 	}
 	if is_locked {
-		rl.printf("i(%d) will unlock resouce\n", rl.owner)
+		Log.Tracef("i(%d) will unlock resouce\n", rl.owner)
 		rl.owner = 0
 		rl.mu.Unlock()
 	}

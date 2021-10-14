@@ -25,15 +25,15 @@ func (fs *Filscaner) handleNewHeaders(headers []*api.HeadChange) {
 			continue
 		}
 		//fs.displayNotifi(header)
-		//utils.Log.Tracef("---------------------------------%v---------------------------------", time.Now().Format(utils.TimeString))
-		if header.Type == store.HCCurrent {
-			//
-			//utils.Log.Tracef("---------------------------------这特么的是什么情况呢？tore.HCCurrent 当前高度为 %d---------------------------------", header.Val.Height())
-			go fs.ParamTemp(header.Val, header.Type)
-		}
+		utils.Log.Tracef("---------------------------------%v---------------------------------", time.Now().Format(utils.TimeString))
+		// if header.Type == store.HCCurrent {
+		// 	//
+		// 	//utils.Log.Tracef("---------------------------------这特么的是什么情况呢？tore.HCCurrent 当前高度为 %d---------------------------------", header.Val.Height())
+		
+		// }
 		if header.Type == store.HCApply {
 			//utils.Log.Traceln("这特么的是什么情况呢？ store.HCApply")
-			go fs.ParamTemp(header.Val, header.Type)
+	
 			fs.handleApplyTippet(header.Val, nil)
 			fs.lastApplyTippet = header.Val
 		}

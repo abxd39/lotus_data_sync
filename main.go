@@ -4,13 +4,15 @@ import (
 	"context"
 
 	"fmt"
-	"github.com/astaxie/beego/config"
+	"lotus_data_sync/module"
 	"lotus_data_sync/syncer"
 	"lotus_data_sync/utils"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"time"
+
+	"github.com/astaxie/beego/config"
 )
 
 var Inst = &syncer.Filscaner{}
@@ -24,33 +26,31 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	//webLog := utils.Initconf.String("webLog")
-	//if webLog == "" {
-	//	panic("web log 路径配置错误")
-	//}
-	//logger.InitLog(webLog)
-	//rawLogger, err := zap.NewDevelopment(zap.Fields(zap.String("serive", "lotus_filscan")))
-
-	//if err != nil {
-	//	panic(err)
-	//}
-	
-		
-	
-
-	if err := Inst.Init(context.TODO(), config_file, utils.LotusApi); err != nil {
+	//日志
+	utils.SetupLogger()
+	//初始化mongodb
+	module.MongodbInit(utils.Initconf)
+	//初始化lotus
+	syncer.LotusInit()
+	//初始化实力
+	syncer.NewInstance(context.TODO(),utils.LotusApi)
+	//初始化缓存
+	if err := Inst.Init(context.TODO(), utils.LotusApi); err != nil {
 		utils.Log.Traceln("error ", err)
 		panic(err)
 	}
-	//}()
+	
 
 	Inst.Run()
 	local := utils.Initconf.String("Local")
 
 	utils.Log.Traceln("Init() ok , loacl=", local, len(local))
-	localhost:=utils.Initconf.String("httpport")
-	http.ListenAndServe(localhost, nil) //🔥图服务
-
+	localhost := utils.Initconf.String("httpport")
+	utils.Log.Traceln(fmt.Sprintf("server will listen %s", localhost))
+	if err:=http.ListenAndServe(localhost, nil) ;err!=nil{//🔥图服务
+		fmt.Println(err)
+	}
+	fmt.Printf("server will listen %s 已经退出", localhost)
 }
 
 func gracefullShutdown(server *http.Server, quit <-chan os.Signal, done chan<- bool) {

@@ -52,7 +52,7 @@ func (fs *Filscaner) syncToGenesis(from *types.TipSet) (*types.TipSet, error) {
 				utils.Log.Infof("‹syncing›:synced range is merged:(%d, %d)", mergedPath.Head.Height, mergedPath.Tail.Height)
 			}
 			modelsData := tbml.buildModelsData()
-			fs.tipsetMinerMessagesNotifer <- modelsData.miners
+			//fs.tipsetMinerMessagesNotifer <- modelsData.miners
 
 			if err = modelsData.modelsUpsert(); err != nil {
 				utils.Log.Errorf("error, tipset_block_message_list upsert failed, message:%s", err.Error())
@@ -88,7 +88,7 @@ func (fs *Filscaner) syncToGenesis(from *types.TipSet) (*types.TipSet, error) {
 		}
 		child = parent
 	}
-	fs.tipsetMinerMessagesNotifer <- nil
+	//fs.tipsetMinerMessagesNotifer <- nil
 	return child, err
 }
 

@@ -2,6 +2,8 @@ module lotus_data_sync
 
 go 1.17
 
+replace github.com/filecoin-project/filecoin-ffi => ./extern/lotus/extern/filecoin-ffi
+
 require (
 	github.com/arthurkiller/rollingwriter v1.1.2
 	github.com/astaxie/beego v1.12.3
@@ -29,6 +31,7 @@ require (
 
 require (
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0 // indirect
+	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/GeertJohan/go.incremental v1.0.0 // indirect
 	github.com/GeertJohan/go.rice v1.0.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
@@ -40,16 +43,23 @@ require (
 	github.com/crackcomm/go-gitignore v0.0.0-20170627025303-887ab5e44cc3 // indirect
 	github.com/daaku/go.zipexe v1.0.0 // indirect
 	github.com/detailyang/go-fallocate v0.0.0-20180908115635-432fa640bd2e // indirect
+	github.com/elastic/go-sysinfo v1.3.0 // indirect
+	github.com/elastic/go-windows v1.0.0 // indirect
+	github.com/filecoin-project/filecoin-ffi v0.30.4-0.20200910194244-f640612a1a1f // indirect
 	github.com/filecoin-project/go-amt-ipld/v2 v2.1.0 // indirect
 	github.com/filecoin-project/go-amt-ipld/v3 v3.1.0 // indirect
 	github.com/filecoin-project/go-bitfield v0.2.4 // indirect
 	github.com/filecoin-project/go-cbor-util v0.0.0-20191219014500-08c40a1e63a2 // indirect
+	github.com/filecoin-project/go-commp-utils v0.1.1-0.20210427191551-70bf140d31c7 // indirect
 	github.com/filecoin-project/go-data-transfer v1.10.1 // indirect
+	github.com/filecoin-project/go-fil-commcid v0.1.0 // indirect
 	github.com/filecoin-project/go-fil-markets v1.12.0 // indirect
 	github.com/filecoin-project/go-hamt-ipld v0.1.5 // indirect
 	github.com/filecoin-project/go-hamt-ipld/v2 v2.0.0 // indirect
 	github.com/filecoin-project/go-hamt-ipld/v3 v3.1.0 // indirect
 	github.com/filecoin-project/go-jsonrpc v0.1.4-0.20210217175800-45ea43ac2bec // indirect
+	github.com/filecoin-project/go-padreader v0.0.0-20210723183308-812a16dc01b1 // indirect
+	github.com/filecoin-project/go-statemachine v1.0.1 // indirect
 	github.com/filecoin-project/go-statestore v0.1.1 // indirect
 	github.com/filecoin-project/specs-actors/v2 v2.3.5 // indirect
 	github.com/filecoin-project/specs-actors/v3 v3.1.1 // indirect
@@ -67,6 +77,7 @@ require (
 	github.com/golang/snappy v0.0.2-0.20190904063534-ff6b7dc882cf // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/gorilla/mux v1.7.4 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hannahhoward/cbor-gen-for v0.0.0-20200817222906-ea96cece81f1 // indirect
 	github.com/hannahhoward/go-pubsub v0.0.0-20200423002714-8d62886cc36e // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
@@ -97,8 +108,10 @@ require (
 	github.com/ipld/go-ipld-prime v0.12.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
 	github.com/jessevdk/go-flags v1.4.0 // indirect
+	github.com/joeshaw/multierror v0.0.0-20140124173710-69b34d4ec901 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.11 // indirect
+	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.8 // indirect
 	github.com/libp2p/go-buffer-pool v0.0.2 // indirect
 	github.com/libp2p/go-flow-metrics v0.0.3 // indirect
@@ -136,6 +149,7 @@ require (
 	github.com/prometheus/common v0.18.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/raulk/clock v1.1.0 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect
 	github.com/robfig/cron v1.1.0 // indirect
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/russross/blackfriday/v2 v2.0.1 // indirect
@@ -145,12 +159,15 @@ require (
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
+	github.com/tj/go-spin v1.1.0 // indirect
 	github.com/urfave/cli/v2 v2.2.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.0.1 // indirect
 	github.com/whyrusleeping/bencher v0.0.0-20190829221104-bb6607aa8bba // indirect
 	github.com/whyrusleeping/pubsub v0.0.0-20190708150250-92bcb0691325 // indirect
 	github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee // indirect
+	github.com/xlab/c-for-go v0.0.0-20201112171043-ea6dce5809cb // indirect
+	github.com/xlab/pkgconfig v0.0.0-20170226114623-cea12a0fd245 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
@@ -165,5 +182,11 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	howett.net/plist v0.0.0-20181124034731-591f970eefbb // indirect
+	modernc.org/cc v1.0.0 // indirect
+	modernc.org/golex v1.0.1 // indirect
+	modernc.org/mathutil v1.4.0 // indirect
+	modernc.org/strutil v1.1.1 // indirect
+	modernc.org/xc v1.0.0 // indirect
 	xorm.io/builder v0.3.9 // indirect
 )

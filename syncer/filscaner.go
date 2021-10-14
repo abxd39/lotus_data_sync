@@ -3,15 +3,16 @@ package syncer
 import (
 	"context"
 	"errors"
-	
+
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/api/v1api"
 	"github.com/filecoin-project/lotus/chain/types"
 	//"github.com/filecoin-project/node/config"
+	"github.com/filecoin-project/lotus/api/client"
 	"github.com/globalsign/mgo"
+	"lotus_data_sync/force/factors"
 	"lotus_data_sync/module"
 	"lotus_data_sync/utils"
-	"lotus_data_sync/force/factors"
 	"math/big"
 	"sync"
 )
@@ -64,12 +65,14 @@ type Filscaner struct {
 
 //var Inst = &Filscaner{ }
 var Inst = &Filscaner{}
+var LotusCommonApi api.Common
 
-func NewInstance(ctx context.Context, config_path string, lotusApi v1api.FullNode) (*Filscaner, error) {
+func NewInstance(ctx context.Context, lotusApi v1api.FullNode) (*Filscaner, error) {
 	filscaner := &Filscaner{}
-	if err := filscaner.Init(ctx, config_path, lotusApi); err != nil {
+	if err := filscaner.Init(ctx, lotusApi); err != nil {
 		return nil, err
 	}
+	Inst=filscaner
 	return filscaner, nil
 }
 
@@ -107,7 +110,7 @@ func (fs *Filscaner) initLotusClient(lotusApi v1api.FullNode) error {
 	return nil
 }
 
-func (fs *Filscaner) Init(ctx context.Context, config_path string, lotusApi v1api.FullNode) error {
+func (fs *Filscaner) Init(ctx context.Context, lotusApi v1api.FullNode) error {
 	fs.ctx, fs.cancel = context.WithCancel(ctx)
 
 	var err error
@@ -132,17 +135,17 @@ func (fs *Filscaner) Init(ctx context.Context, config_path string, lotusApi v1ap
 
 	fs.collation = &mgo.Collation{Locale: "zh", NumericOrdering: true}
 
-	// if fs.syncedTipsetPathList, err = modelsNewSyncedTipsetList(); err != nil {
-	// 	utils.Log.Errorln(err)
-	// 	return err
-	// }
+	if fs.syncedTipsetPathList, err = modelsNewSyncedTipsetList(); err != nil {
+		utils.Log.Errorln(err)
+		return err
+	}
 
-	// fs.tipsetsCache = newFsCache(int(fs.tipsetCacheSize))
-	// fs.safeTipsetChannel = make(chan *types.TipSet, 100)
+	fs.tipsetsCache = newFsCache(int(fs.tipsetCacheSize))
+	fs.safeTipsetChannel = make(chan *types.TipSet, 100)
 
-	// fs.handleSafeTipset = fs.handleFirstSafeTipset
-	// fs.handleApplyTippet = fs.handleFirstApplyTippet
-	// utils.Log.Traceln("init begin ")
+	fs.handleSafeTipset = fs.handleFirstSafeTipset
+	fs.handleApplyTippet = fs.handleFirstApplyTippet
+	utils.Log.Traceln("init begin ")
 	// if err := fs.initMinersCaches(); err != nil {
 	// 	utils.Log.Errorln(err)
 	// 	return err
@@ -152,11 +155,11 @@ func (fs *Filscaner) Init(ctx context.Context, config_path string, lotusApi v1ap
 }
 
 func (fs *Filscaner) Run() {
-	fs.TaskStartHandleMinerState()
-	fs.Task_StartHandleMessage()
+	//fs.TaskStartHandleMinerState()
+	//fs.Task_StartHandleMessage()
 	fs.TaskStartSyncer()
-	fs.TaskSyncTipsetRewardsDb()
-	fs.TaskInitBlockRewards()
+	//fs.TaskSyncTipsetRewardsDb()
+	//fs.TaskInitBlockRewards()
 }
 
 func (fs *Filscaner) iniChainGenesisTime() error {
@@ -171,4 +174,33 @@ func (fs *Filscaner) iniChainGenesisTime() error {
 
 	fs.chainGenesisTime = genesis.MinTimestamp()
 	return nil
+}
+
+func LotusInit() {
+	lotusGetWay := utils.Initconf.String("lotusGetWay")
+	//cli, stopper, err := client.NewFullNodeRPC(context.TODO(), "ws://"+lotusGetWay+"/rpc/v0", nil)
+	cli, stopper, err := client.NewFullNodeRPCV1(context.TODO(), "ws://"+lotusGetWay+"/rpc/v0", nil)
+	if err != nil {
+		utils.Log.Errorln("get lotus connect err, ,err=[%v]", err)
+		defer stopper()
+	} else {
+
+		utils.LotusApi = cli
+	}
+	commonClient, commonStopper, err := client.NewCommonRPCV0(context.TODO(), "ws://"+lotusGetWay+"/rpc/v0", nil)
+	if err != nil {
+		utils.SugarLogger.Fatalf("get lotus commonClient connect err, ,err=[ %v ]", err)
+		defer commonStopper()
+	} else {
+		peerId, err := cli.ID(context.TODO())
+		if err != nil {
+			utils.SugarLogger.Fatalf("get lotus commonClient connect err, ,err=[%v]", err)
+			defer commonStopper()
+		} else {
+			utils.SugarLogger.Infof("connect lotus success,peerId=[ %v ]", peerId)
+			LotusCommonApi = commonClient
+			utils.SugarLogger.Infof("connect lotus success,peerId,other:=[ %v ]", peerId)
+
+		}
+	}
 }

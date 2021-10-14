@@ -1,9 +1,9 @@
 package module
 
 import (
-	"lotus_data_sync/utils"
 	"fmt"
 	"log"
+	"lotus_data_sync/utils"
 
 	"github.com/astaxie/beego/config"
 
@@ -30,7 +30,7 @@ func TimenowInit() {
 	return
 }
 
-func DbInit(config config.Configer) {
+func MongodbInit(config config.Configer) {
 	host := config.String("mongoHost")
 	user := config.String("mongoUser")
 	pass := config.String("mongoPass")
@@ -83,6 +83,7 @@ func GetGlobalSession(host, user, pass, mongoDB string) *mgo.Session {
 	//url := fmt.Sprintf("mongodb://%s:%s@%s/%s", user, pass, host, mongoDB)
 	//log.Println(url)
 	//s, err := mgo.DialWithTimeout(url, time.Duration(30)*time.Second)
+	utils.Log.Tracef("%+v", dialInfo)
 	s, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		log.Fatalln("create mongodb session error ", err)
