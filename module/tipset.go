@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/filecoin-project/lotus/chain/types"
-	"github.com/globalsign/mgo"
+
 	"github.com/ipfs/go-cid"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -44,23 +44,23 @@ db.Tipset.ensureIndex({"gmt_create":-1})
 db.Tipset.ensureIndex({"cids./":1})
 */
 
-func CreateTipsetIndex() {
-	ms, c := Connect(TipSetCollection)
-	defer ms.Close()
-	ms.SetMode(mgo.Monotonic, true)
+// func CreateTipsetIndex() {
+// 	ms, c := Connect(TipSetCollection)
+// 	defer ms.Close()
+// 	ms.SetMode(mgo.Monotonic, true)
 
-	indexs := []mgo.Index{
-		{Key: []string{"height"}, Unique: false, Background: true},
-		{Key: []string{"key"}, Unique: false, Background: true},
-		{Key: []string{"gmt_create"}, Unique: false, Background: true},
-		{Key: []string{"cids./"}, Unique: false, Background: true},
-	}
-	for _, index := range indexs {
-		if err := c.EnsureIndex(index); err != nil {
-			panic(err)
-		}
-	}
-}
+// 	indexs := []mgo.Index{
+// 		{Key: []string{"height"}, Unique: false, Background: true},
+// 		{Key: []string{"key"}, Unique: false, Background: true},
+// 		{Key: []string{"gmt_create"}, Unique: false, Background: true},
+// 		{Key: []string{"cids./"}, Unique: false, Background: true},
+// 	}
+// 	for _, index := range indexs {
+// 		if err := c.EnsureIndex(index); err != nil {
+// 			panic(err)
+// 		}
+// 	}
+// }
 
 func AddTipSet(t *types.TipSet) error {
 	var tips FilscanTipSet

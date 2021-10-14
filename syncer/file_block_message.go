@@ -13,7 +13,9 @@ import (
 
 type BlockMessage struct {
 	Block   *types.BlockHeader
+	
 	BlkMsgs *api.BlockMessages
+	
 }
 
 type TipsetBlockMessages struct {
@@ -75,14 +77,14 @@ func (b *BlockMessage) fsMessages() []*module.FilscanMsg {
 			GmtCreate:     now,
 			GmtModified:   now}
 
-		if v.Method == 0 {
-			fs_msg.MethodName = "Transfer"
-		} else {
-			// if actor, method, err := ParseActorMessage(v); err == nil {
-			// 	fs_msg.ActorName = actor.Name
-			// 	fs_msg.MethodName = method.Name
-			// }
-		}
+		// if v.Method == 0 {
+		// 	fs_msg.MethodName = "Transfer"
+		// } else {
+		// 	// if actor, method, err := ParseActorMessage(v); err == nil {
+		// 	// 	fs_msg.ActorName = actor.Name
+		// 	// 	fs_msg.MethodName = method.Name
+		// 	// }
+		// }
 
 		//fs_msg.MessageParams = new(InterfaceParam).DecoderMessageParam(fs_msg.Cid, fs_msg.MethodName, fs_msg.Height, true)
 		fsMsgList = append(fsMsgList, fs_msg)
@@ -101,14 +103,14 @@ func (b *BlockMessage) fsMessages() []*module.FilscanMsg {
 			GmtModified:   now,
 			Signature:     secp.Signature}
 
-		if secp.Message.Method == 0 {
-			fs_msg.MethodName = "Transfer"
-		} else {
-			if actor, method, err := ParseActorMessage(&secp.Message); err == nil {
-				fs_msg.ActorName = actor.Name
-				fs_msg.MethodName = method.Name
-			}
-		}
+		// if secp.Message.Method == 0 {
+		// 	fs_msg.MethodName = "Transfer"
+		// } else {
+		// 	if actor, method, err := ParseActorMessage(&secp.Message); err == nil {
+		// 		fs_msg.ActorName = actor.Name
+		// 		fs_msg.MethodName = method.Name
+		// 	}
+		// }
 		//fs_msg.MessageParams = new(InterfaceParam).DecoderMessageParam(fs_msg.Cid, fs_msg.MethodName, fs_msg.Height, false)
 		fsMsgList = append(fsMsgList, fs_msg)
 	}
@@ -158,7 +160,7 @@ func (b *TipsetBlockMessages) buildModelsData() (*module.FilscanTipSet, []*modul
 	for _, blMsg := range b.BlockMsgs {
 		fsBlock := blMsg.fsBlock()
 		fsMessages := blMsg.fsMessages()
-
+		utils.Log.Tracef("debug height=%d block_cid=%s message %d",fsBlock.BlockHeader.Height,fsBlock.Cid,len(fsMessages))
 		fsBlockMessage := &module.BlockAndMsg{
 			Block: fsBlock}
 
@@ -249,30 +251,30 @@ func modelsBulkUpsertMessage(col *mgo.Collection, msg_list []*module.FilscanMsg)
 		return nil
 	}
 
-	const maxSize = 256
-	bulkItems := make([]interface{}, maxSize*2)
+	//const maxSize = 256
+	//bulkItems := make([]interface{}, maxSize*2)
 
-	for size > 0 {
-		realSize := size
-		if size > maxSize {
-			realSize = maxSize
-		}
+	// for size > 0 {
+		//realSize := size
+		// if size > maxSize {
+		// 	realSize = maxSize
+		// }
 
-		var index = 0
-		for ; index < realSize; index++ {
-			i := index * 2
-			bulkItems[i] = bson.M{"cid": msg_list[index].Cid}
-			bulkItems[i+1] = utils.ToInterface(msg_list[index])
-		}
+		// var index = 0
+		// for ; index < realSize; index++ {
+		// 	i := index * 2
+		// 	bulkItems[i] = bson.M{"cid": msg_list[index].Cid}
+		// 	bulkItems[i+1] = utils.ToInterface(msg_list[index])
+		// }
 
-		if _, err := module.BulkUpsert(col, module.MsgCollection, bulkItems[:index*2]); err != nil {
-			return err
-		}
+		// if _, err := module.BulkUpsert(col, module.MsgCollection, msg_list); err != nil {
+		// 	return err
+		// }
 
-		msg_list = msg_list[index:]
-		size = len(msg_list)
-	}
-
+		// msg_list = msg_list[index:]
+		// size = len(msg_list)
+	//}
+			utils.NewMongoDbLogger()
 	return nil
 }
 

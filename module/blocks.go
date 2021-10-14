@@ -5,7 +5,7 @@ import (
 	"lotus_data_sync/utils"
 	"github.com/filecoin-project/go-state-types/crypto"
 	"github.com/filecoin-project/lotus/chain/types"
-	"github.com/globalsign/mgo"
+
 	"github.com/ipfs/go-cid"
 	"gopkg.in/mgo.v2/bson"
 	"strconv"
@@ -84,23 +84,23 @@ const (
 	BlocksCollection = "Block"
 )
 
-func CreateBlockIndex() {
-	ms, c := Connect(BlocksCollection)
-	defer ms.Close()
-	ms.SetMode(mgo.Monotonic, true)
+// func CreateBlockIndex() {
+// 	ms, c := Connect(BlocksCollection)
+// 	defer ms.Close()
+// 	ms.SetMode(mgo.Monotonic, true)
 
-	indexs := []mgo.Index{
-		{Key: []string{"cid"}, Unique: true, Background: true},
-		//{Key: []string{"cid"}, Unique: false, Background: true},
-		{Key: []string{"block_header.Height"}, Unique: false, Background: true},
-		{Key: []string{"block_header.Timestamp"}, Unique: false, Background: true},
-	}
-	for _, index := range indexs {
-		if err := c.EnsureIndex(index); err != nil {
-			panic(err)
-		}
-	}
-}
+// 	indexs := []mgo.Index{
+// 		{Key: []string{"cid"}, Unique: true, Background: true},
+// 		//{Key: []string{"cid"}, Unique: false, Background: true},
+// 		{Key: []string{"block_header.Height"}, Unique: false, Background: true},
+// 		{Key: []string{"block_header.Timestamp"}, Unique: false, Background: true},
+// 	}
+// 	for _, index := range indexs {
+// 		if err := c.EnsureIndex(index); err != nil {
+// 			panic(err)
+// 		}
+// 	}
+// }
 
 func UpsertFilscanBlock(fb *FilscanBlock) error {
 	fb.GmtCreate = TimeNow

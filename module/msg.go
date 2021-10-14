@@ -96,28 +96,29 @@ db.Msg.ensureIndex({"msg_create":-1})
 db.Msg.ensureIndex({"method_name":-1})
 db.Msg.ensureIndex({"message.From":1,"message.To":1})
 */
-func CreateMsgIndex() {
-	ms, c := Connect(MsgCollection)
-	defer ms.Close()
-	ms.SetMode(mgo.Monotonic, true)
+// func CreateMsgIndex() {
+// 	ms, c := Connect(MsgCollection)
+// 	defer ms.Close()
+// 	ms.SetMode(mgo.Monotonic, true)
 
-	indexs := []mgo.Index{
-		//{Key: []string{"cid"}, Unique: true, Background: true},
-		{Key: []string{"cid"}, Unique: false, Background: true},
-		{Key: []string{"message.Method"}, Unique: false, Background: true},
-		//{Key: []string{"height"}, Unique: false, Background: true},
-		{Key: []string{"message.To"}, Unique: false, Background: true},
-		{Key: []string{"block_cid"}, Unique: false, Background: true},
-		{Key: []string{"msg_create"}, Unique: false, Background: true},
-		{Key: []string{"method_name"}, Unique: false, Background: true},
-		{Key: []string{"message.From", "message.To"}, Unique: false, Background: true},
-	}
-	for _, index := range indexs {
-		if err := c.EnsureIndex(index); err != nil {
-			panic(err)
-		}
-	}
-}
+// 	indexs := []mgo.Index{
+// 		//{Key: []string{"cid"}, Unique: true, Background: true},
+// 		{Key: []string{"cid"}, Unique: true, Background: true},
+// 		{Key: []string{"message.Method"}, Unique: false, Background: true},
+// 		{Key: []string{"height"}, Unique: false, Background: true},
+// 		{Key: []string{"message.To"}, Unique: false, Background: true},
+// 		{Key: []string{"block_cid"}, Unique: false, Background: true},
+// 		{Key: []string{"msg_create"}, Unique: false, Background: true},
+// 		{Key: []string{"method_name"}, Unique: false, Background: true},
+// 		{Key: []string{"message.From", "message.To"}, Unique: false, Background: true},
+// 	}
+// 	for _, index := range indexs {
+// 		if err := c.EnsureIndex(index); err != nil {
+// 			panic(err)
+// 		}
+// 	}
+// }
+
 
 func InsertFilscanMsg(m *FilscanMsg) error {
 	m.GmtCreate = TimeNow

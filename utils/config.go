@@ -6,6 +6,7 @@ import (
 	"github.com/go-redis/redis"
 	"xorm.io/xorm"
 		"xorm.io/xorm/log"
+		"go.mongodb.org/mongo-driver/mongo"
 
 )
 
@@ -33,3 +34,5 @@ var Initconf bc.Configer
 var DB *xorm.Engine
 
  var LoggerXorm *log.SimpleLogger 
+
+ var Mdb *mongo.Database

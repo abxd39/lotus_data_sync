@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/globalsign/mgo"
+	
 )
 
 var ps = fmt.Sprintf
@@ -113,8 +114,9 @@ func Copy() (*mgo.Session, *mgo.Database) {
 }
 
 func Connect(collection string) (*mgo.Session, *mgo.Collection) {
-	return connect(collection)
+	return  connect(collection)
 }
+
 
 func Insert(collection string, docs ...interface{}) error {
 	ms, c := connect(collection)
@@ -122,7 +124,9 @@ func Insert(collection string, docs ...interface{}) error {
 	return c.Insert(docs...)
 }
 
-func BulkUpsert(c *mgo.Collection, c_name string, docs []interface{}) (*mgo.BulkResult, error) {
+
+
+func BulkUpsert(c *mgo.Collection, c_name string, docs...interface{}) (*mgo.BulkResult, error) {
 	if c == nil {
 		var s *mgo.Session
 		s, c = connect(c_name)
@@ -135,7 +139,7 @@ func BulkUpsert(c *mgo.Collection, c_name string, docs []interface{}) (*mgo.Bulk
 	}
 
 	bulk := c.Bulk()
-	bulk.Upsert(docs[:]...)
+	bulk.Upsert(docs...)
 	return bulk.Run()
 }
 

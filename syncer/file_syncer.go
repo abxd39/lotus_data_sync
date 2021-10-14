@@ -184,57 +184,6 @@ func (fs *Filscaner) buildPersistenceData(child, parent *types.TipSet) (*TipsetB
 	return fs.apiTipsetBlockMessagesAndReceipts(parent, childKeys[0])
 }
 
-func (fs *Filscaner) handleFirstApplyTippet(child, parent *types.TipSet) {
-	utils.Log.Traceln("handleFirstApplyTippet")
-	if child == nil {
-		return
-	}
-	var err error
-	if parent == nil || child.Parents().String() != parent.Key().String() {
-		if parent, err = fs.api.ChainGetTipSet(fs.ctx, child.Parents()); err != nil {
-			utils.Log.Errorf("error, get tipset(%d,%s) failed, message:%s",
-				parent.Height()-1, parent.Parents().String(), err.Error())
-			return
-		}
-	}
-	fs.syncTipsetCacheFallThrough(child, parent)
-	fs.handleApplyTippet = fs.handleSecondApplyTippet
-}
-
-func (fs *Filscaner) handleSecondApplyTippet(child, this_is_nil_value_do_not_use *types.TipSet) {
-	utils.Log.Traceln("handleSecondApplyTippet")
-	if fs.lastApplyTippet.Height() == child.Height() {
-		// p1, _ := fs.api.ChainGetTipSet(fs.ctx, child.Parents())
-		// p2, _ := fs.api.ChainGetTipSet(fs.ctx, fs.last_appl_tipset.Parents())
-		// fs.Printf("p1 equals p2 = %v\n", p1.Equals(p2))
-		return
-	}
-
-	parent, err := fs.api.ChainGetTipSet(fs.ctx, child.Parents())
-	if err != nil {
-		utils.Log.Errorf("error, get child(%d,%s) failed, message:%s",
-			child.Height()-1, child.Parents().String(), err.Error())
-		return
-	}
-	//go fs.ParamTemp(child)
-
-	blockMessage, err := fs.buildPersistenceData(child, parent)
-	if err != nil {
-		utils.Log.Errorf("error, build_persistence_data(child:%d, parent:%d) failed, message:%s",
-			child.Height(), parent.Height(), err.Error())
-		return
-	}
-
-	if ftsp := fs.tipsetsCache.Front(); ftsp != nil && child.Height() <= ftsp.Height() {
-		utils.Log.Errorf("‹forked›‹›‹›at child:‹%d›, current head is:‹%d›",
-			child.Height(), ftsp.Height())
-	}
-
-	if blockMessage = fs.tipsetsCache.pushFront(blockMessage); blockMessage != nil {
-		fs.handleSafeTipset(blockMessage)
-	}
-}
-
 //消息参数解析
 func (fs *Filscaner) ParamTemp(parent *types.TipSet, string2 string) {
 	var blocks = parent.Blocks()
@@ -341,62 +290,8 @@ func (fs *Filscaner) Temp(msg *types.Message, height uint64, blackcid, tp string
 
 }
 
-func (fs *Filscaner) handleFirstSafeTipset(blockmessage *TipsetBlockMessages) {
-	utils.Log.Traceln("handleFirstSafeTipset")
-	//TODO message block  tipsets
-	utils.Log.Tracef("height=%d",blockmessage.Tipset.Height())
-	if err := blockmessage.modelsUpsert(); err != nil {
-		utils.Log.Errorf("error, Tipset_block_messages.models_upsert failed, message:%s",
-			err.Error())
-		return
-	}
-	fs.taskSyncToGenesis(blockmessage.Tipset)
-	fs.handleSafeTipset = fs.handleSecodSafeTipset
-	//TODO 处理新增的 block
-	//tmpFsTipset, tmpFsBlocks, tmpFsMsgs, tmpMinerMsgs := blockmessage.buildModelsData()
-	//
-	//tempf := func(param []*module.FilscanBlock) {
-	//	for _, v := range param {
-	//		var gas module.Gas
-	//		gas.v.BlockReward
-	//
-	//	}
-	//modelsData.tipsets = append(modelsData.tipsets, tmpFsTipset)
-	//modelsData.blocks = append(modelsData.blocks, tmpFsBlocks[:]...)
-	//modelsData.messages = append(modelsData.messages, tmpFsMsgs[:]...)
-	//modelsData.miners[index] = tmpMinerMsgs
-	//}
-	//go tempf(tmpFsBlocks)
-}
 
-func (fs *Filscaner) handleSecodSafeTipset(in *TipsetBlockMessages) {
-	utils.Log.Traceln("handleSecodSafeTipset")
-	if in == nil {
-		utils.Log.Errorln("debug 出去了")
-		return
-	}
-	var tbml = &TipsetBlockMessageList{
-		TipsetBlockMessages: []*TipsetBlockMessages{in}}
 
-	var err error
-
-	if fs.syncedTipsetPathList.insertHeadChild(in.Tipset) {
-		if err = fs.syncedTipsetPathList.modelsUpsertFront(true); err != nil {
-			utils.Log.Errorf("error, models_upsert_front failed, message:%s", err.Error())
-			return
-		}
-
-		modelsData := tbml.buildModelsData()
-		utils.Log.Traceln("最新区块入库 height=",in.Tipset.Height())
-		fs.tipsetMinerMessagesNotifer <- modelsData.miners
-
-		if err = modelsData.modelsUpsert(); err != nil {
-			utils.Log.Errorf("error, Tipset_block_message_list.upsert failed, message:%s", err.Error())
-			return
-		}
-			utils.Log.Traceln("最新区块入库 mongodb ok height=",in.Tipset.Height())
-	}
-}
 
 //消息解析
 func (fs *Filscaner) apiTipsetBlockMessagesAndReceipts(tipset *types.TipSet, childCid cid.Cid) (*TipsetBlockMessages, error) {
@@ -406,6 +301,7 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceipts(tipset *types.TipSet, chi
 	for _, block := range blocks {
 		if message, err := fs.api.ChainGetBlockMessages(fs.ctx, block.Cid()); err == nil {
 			blmsg := &BlockMessage{block, message}
+			
 			tpstBlms.BlockMsgs = append(tpstBlms.BlockMsgs, blmsg)
 
 		} else {
