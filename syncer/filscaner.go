@@ -3,18 +3,21 @@ package syncer
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/api/v1api"
 	"github.com/filecoin-project/lotus/chain/types"
+
 	//"github.com/filecoin-project/node/config"
-	"github.com/filecoin-project/lotus/api/client"
-	"github.com/globalsign/mgo"
 	"lotus_data_sync/force/factors"
 	"lotus_data_sync/module"
 	"lotus_data_sync/utils"
 	"math/big"
 	"sync"
+
+	"github.com/filecoin-project/lotus/api/client"
+	"github.com/globalsign/mgo"
 )
 
 type TipsetMinerMessages struct {
@@ -72,7 +75,7 @@ func NewInstance(ctx context.Context, lotusApi v1api.FullNode) (*Filscaner, erro
 	if err := filscaner.Init(ctx, lotusApi); err != nil {
 		return nil, err
 	}
-	Inst=filscaner
+	Inst = filscaner
 	return filscaner, nil
 }
 
@@ -125,7 +128,7 @@ func (fs *Filscaner) Init(ctx context.Context, lotusApi v1api.FullNode) error {
 	}
 
 	fs.headNotifier = make(chan *api.HeadChange)
-	fs.tipsetMinerMessagesNotifer = make(chan []*TipsetMinerMessages, 1000)
+	fs.tipsetMinerMessagesNotifer = make(chan []*TipsetMinerMessages, 100)
 
 	fs.toUpdateMinerSize = 512
 	fs.toUpdateMinerIndex = 0
@@ -133,12 +136,12 @@ func (fs *Filscaner) Init(ctx context.Context, lotusApi v1api.FullNode) error {
 
 	fs.displayTracks = true
 
-	fs.collation = &mgo.Collation{Locale: "zh", NumericOrdering: true}
+	// fs.collation = &mgo.Collation{Locale: "zh", NumericOrdering: true}
 
-	if fs.syncedTipsetPathList, err = modelsNewSyncedTipsetList(); err != nil {
-		utils.Log.Errorln(err)
-		return err
-	}
+	// if fs.syncedTipsetPathList, err = modelsNewSyncedTipsetList(); err != nil {
+	// 	utils.Log.Errorln(err)
+	// 	return err
+	// }
 
 	fs.tipsetsCache = newFsCache(int(fs.tipsetCacheSize))
 	fs.safeTipsetChannel = make(chan *types.TipSet, 100)
@@ -189,17 +192,17 @@ func LotusInit() {
 	}
 	commonClient, commonStopper, err := client.NewCommonRPCV0(context.TODO(), "ws://"+lotusGetWay+"/rpc/v0", nil)
 	if err != nil {
-		utils.SugarLogger.Fatalf("get lotus commonClient connect err, ,err=[ %v ]", err)
+		log.Panicf("get lotus commonClient connect err, ,err=[ %v ]", err)
 		defer commonStopper()
 	} else {
 		peerId, err := cli.ID(context.TODO())
 		if err != nil {
-			utils.SugarLogger.Fatalf("get lotus commonClient connect err, ,err=[%v]", err)
+			log.Panicf("get lotus commonClient connect err, ,err=[%v]", err)
 			defer commonStopper()
 		} else {
-			utils.SugarLogger.Infof("connect lotus success,peerId=[ %v ]", peerId)
+			utils.Log.Infof("connect lotus success,peerId=[ %v ]", peerId)
 			LotusCommonApi = commonClient
-			utils.SugarLogger.Infof("connect lotus success,peerId,other:=[ %v ]", peerId)
+			utils.Log.Infof("connect lotus success,peerId,other:=[ %v ]", peerId)
 
 		}
 	}

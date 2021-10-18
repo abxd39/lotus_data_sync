@@ -77,10 +77,10 @@ func ToXSize(size *big.Int, unit XSIZE) string {
 }
 
 func ToInterface(itfc interface{}) interface{} {
-	// data, _ := json.Marshal(itfc)
-	// var o interface{}
-	// json.Unmarshal(data, &o)
-	return itfc
+	data, _ := json.Marshal(itfc)
+	var o interface{}
+	json.Unmarshal(data, &o)
+	return o
 }
 
 // from types.TipsetKey.String to *types.TipsetKey

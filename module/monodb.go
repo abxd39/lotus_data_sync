@@ -17,22 +17,21 @@ func MongodbConnect() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://"+mongoHost))
-	defer func() {
-		if err = client.Disconnect(ctx); err != nil {
-			panic(err)
-		}
-	}()
+	if err != nil {
+		panic(err)
+	}
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	err = client.Ping(ctx, readpref.Primary())
 	utils.Mdb = client.Database(mongoDB)
-	CreateMsgIndex()
-	CreateBlockIndex()
+	CreateBlockMsgIndex()
+	CreateSyncInfoIndex()
+	//CreateBlockIndex()
 }
 
 func CreateMsgIndex() {
 
-	indexView := utils.Mdb.Collection(MsgCollection).Indexes()
+	indexView := utils.Mdb.Collection(BlockMsgCollection).Indexes()
 
 	// Create two indexes: {name: 1, email: 1} and {name: 1, age: 1}
 	// For the first index, specify no options. The name will be generated as
@@ -41,12 +40,12 @@ func CreateMsgIndex() {
 	// to "nameAge".
 	models := []mongo.IndexModel{
 		{
-			Keys: bson.D{{"cid", "text"}},
+			Keys: bson.D{{"cid", 1}},
 			//Options: options.Index().SetName("nameAge"),
 			Options: options.Index().SetUnique(true).SetBackground(true),
 		},
 		{
-			Keys:    bson.D{{"message.From", "text"}, {"message.To", "text"}, {"message.Method", -1}},
+			Keys:    bson.D{{"message.From", 1}, {"message.To", 1}, {"message.Method", -1}},
 			Options: options.Index().SetBackground(true).SetUnique(false),
 		},
 		{
@@ -54,11 +53,11 @@ func CreateMsgIndex() {
 			Options: options.Index().SetBackground(true).SetUnique(false),
 		},
 		{
-			Keys:    bson.D{{"block_cid", "text"}},
+			Keys:    bson.D{{"block_cid", 1}},
 			Options: options.Index().SetBackground(true).SetUnique(false),
 		},
 		{
-			Keys:    bson.D{{"height", "text"}},
+			Keys:    bson.D{{"height", 1}},
 			Options: options.Index().SetBackground(true).SetUnique(false),
 		},
 	}

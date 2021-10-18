@@ -4,8 +4,9 @@ import (
 	"context"
 	"lotus_data_sync/module"
 
-	"lotus_data_sync/utils"
 	"fmt"
+	"lotus_data_sync/utils"
+
 	"github.com/filecoin-project/go-state-types/abi"
 
 	"github.com/filecoin-project/lotus/chain/types"
@@ -28,12 +29,12 @@ func (fs *Filscaner) syncToGenesis(from *types.TipSet) (*types.TipSet, error) {
 	var beginHeight = child.Height()
 	utils.Log.Traceln("data manager for syncToGenesis")
 	for cidsSize != 0 { // genesis case 'bafy2bzaceaxm23epjsmh75yvzcecsrbavlmkcxnva66bkdebdcnyw3bjrc74u'
-	parent, err = fs.api.ChainGetTipSet(fs.ctx, child.Parents())
-	if err != nil {
-		utils.Log.Errorf("error:sync_to_genesis will exit, message:%s", err.Error())
-		return nil, err
-	}
-	//utils.Log.Traceln("heitht =",parent.Height())
+		parent, err = fs.api.ChainGetTipSet(fs.ctx, child.Parents())
+		if err != nil {
+			utils.Log.Errorf("error:sync_to_genesis will exit, message:%s", err.Error())
+			return nil, err
+		}
+		//utils.Log.Traceln("heitht =",parent.Height())
 		if !fs.syncedTipsetPathList.insertTailParent(parent) {
 			return parent, fmt.Errorf("error, sync to genesis, isn't a parents(%d), it's impossible", parent.Height())
 		}
@@ -76,13 +77,13 @@ func (fs *Filscaner) syncToGenesis(from *types.TipSet) (*types.TipSet, error) {
 				}
 			}
 			tbml.TipsetBlockMessages = tbml.TipsetBlockMessages[:0]
-			
+
 		}
 		utils.Log.Infof("‹syncing›:sync tipset(%d) finished", parent.Height())
 		endHeight := parent.Height()
 		if beginHeight-endHeight > 250 {
 			endTime := time.Now().Unix()
-			utils.Log.Infof("‹syncing›:sync from:%d to:[%d], count=%d, used time=%dm:%ds",beginHeight, endHeight, beginHeight-endHeight,(endTime-beginTime)/60, (endTime-beginTime)%60)
+			utils.Log.Infof("‹syncing›:sync from:%d to:[%d], count=%d, used time=%dm:%ds", beginHeight, endHeight, beginHeight-endHeight, (endTime-beginTime)/60, (endTime-beginTime)%60)
 			beginTime = endTime
 			beginHeight = endHeight
 		}
@@ -181,6 +182,7 @@ func (fs *Filscaner) buildPersistenceData(child, parent *types.TipSet) (*TipsetB
 		return nil, fmt.Errorf("tipset(%d, %s) have no blocks",
 			child.Height(), child.Key().String())
 	}
+	fs.apiTipsetBlockMessagesAndReceiptsNew(parent)
 	return fs.apiTipsetBlockMessagesAndReceipts(parent, childKeys[0])
 }
 
@@ -290,9 +292,6 @@ func (fs *Filscaner) Temp(msg *types.Message, height uint64, blackcid, tp string
 
 }
 
-
-
-
 //消息解析
 func (fs *Filscaner) apiTipsetBlockMessagesAndReceipts(tipset *types.TipSet, childCid cid.Cid) (*TipsetBlockMessages, error) {
 	var tpstBlms = &TipsetBlockMessages{}
@@ -301,7 +300,7 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceipts(tipset *types.TipSet, chi
 	for _, block := range blocks {
 		if message, err := fs.api.ChainGetBlockMessages(fs.ctx, block.Cid()); err == nil {
 			blmsg := &BlockMessage{block, message}
-			
+
 			tpstBlms.BlockMsgs = append(tpstBlms.BlockMsgs, blmsg)
 
 		} else {
@@ -323,8 +322,95 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceipts(tipset *types.TipSet, chi
 		utils.Log.Errorf("ChainGetParentReceipts:%v", err)
 	}
 	tpstBlms.buildModelsData()
+
 	return tpstBlms, err
 
+}
+
+var MessagMap map[int]map[string]*module.MessageInfo
+
+func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) error {
+	var err error
+	var msg module.BlockMsg
+	var blocks = tipset.Blocks()
+	//uniqueMap := make(map[string]*module.MessageInfo, 0)
+	heightPre := 0
+	if _, ok := MessagMap[int(tipset.Height())]; !ok {
+		MessagMap[int(tipset.Height())] = make(map[string]*module.MessageInfo)
+	}
+	for _, block := range blocks {
+		//如何去重
+		msg.Msg = make([]*module.MessageInfo, 0)
+		heightPre = int(block.Height)
+		if m, err := fs.api.ChainGetBlockMessages(fs.ctx, block.Cid()); err == nil {
+			msg.BlockCid = block.Cid().String()
+			msg.Crated = time.Now().Unix()
+			msg.Height = int64(block.Height)
+			//msg.Msg = append(msg.Msg, m.BlsMessages...)
+			for _, v := range m.BlsMessages {
+				minfo := module.MessageInfo{}
+				minfo.Cid = v.Cid().String()
+				minfo.From = v.From.String()
+				minfo.To = v.To.String()
+				minfo.Version = v.Version
+				minfo.GasFeeCap = v.GasFeeCap.Int64()
+				minfo.GasLimit = v.GasLimit
+				minfo.Method = v.Method
+				minfo.Nonce = v.Nonce
+				minfo.Params = v.Params
+				minfo.GasPremium = v.GasPremium.Int64()
+				minfo.Value = v.Value.Int64()
+				//uniqueMap[minfo.Cid] = &minfo
+
+				if _, ok := MessagMap[int(block.Height)][minfo.Cid]; !ok {
+					MessagMap[int(block.Height)][minfo.Cid] = &minfo
+					msg.Msg = append(msg.Msg, &minfo)
+				}
+			}
+			for _, v := range m.SecpkMessages {
+				minfo := module.MessageInfo{}
+				minfo.Cid = v.Cid().String()
+				minfo.From = v.Message.From.String()
+				minfo.To = v.Message.To.String()
+				minfo.Version = v.Message.Version
+				minfo.GasFeeCap = v.Message.GasFeeCap.Int64()
+				minfo.GasLimit = v.Message.GasLimit
+				minfo.Method = v.Message.Method
+				minfo.Nonce = v.Message.Nonce
+				minfo.Params = v.Message.Params
+				minfo.GasPremium = v.Message.GasPremium.Int64()
+				minfo.Value = v.Message.Value.Int64()
+
+				if _, ok := MessagMap[int(block.Height)][minfo.Cid]; !ok {
+					MessagMap[int(block.Height)][minfo.Cid] = &minfo
+					msg.Msg = append(msg.Msg, &minfo)
+				}
+
+			}
+		}
+		//入库
+		var sy module.SyncInfo
+		sy.BlockCid = block.Cid().String()
+		sy.Height = int64(block.Height)
+		sy.Created = time.Now().Unix()
+		utils.Log.Tracef(" block_cid=%s height=%d", block.Cid(), block.Height)
+		if err = new(module.SyncInfo).InsertOne(sy); err != nil {
+			utils.Log.Errorln(err)
+			continue
+		}
+		utils.Log.Tracef(" block_cid=%s height=%d", block.Cid(), block.Height)
+
+		if err = new(module.BlockMsg).InsertMany(msg); err != nil { 
+			utils.Log.Errorln(err)
+			continue
+		}
+
+	}
+	//if _, ok := mm[heightPre-1]; ok {
+	delete(MessagMap, heightPre-1)
+
+	//}
+	return err
 }
 
 //查询block表 所有的区块奖励 统计到统计表

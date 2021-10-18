@@ -24,6 +24,7 @@ require (
 	github.com/oschwald/geoip2-golang v1.5.0
 	github.com/shopspring/decimal v1.2.0
 	github.com/whyrusleeping/cbor-gen v0.0.0-20210713220151-be142a5ae1a8
+	go.mongodb.org/mongo-driver v1.7.3
 	go.uber.org/zap v1.16.0
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
 	xorm.io/xorm v1.2.5
@@ -174,7 +175,6 @@ require (
 	github.com/xlab/c-for-go v0.0.0-20201112171043-ea6dce5809cb // indirect
 	github.com/xlab/pkgconfig v0.0.0-20170226114623-cea12a0fd245 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
-	go.mongodb.org/mongo-driver v1.7.3 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect

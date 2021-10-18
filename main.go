@@ -29,7 +29,9 @@ func main() {
 	//日志
 	utils.SetupLogger()
 	//初始化mongodb
-	module.MongodbInit(utils.Initconf)
+	//module.MongodbInit(utils.Initconf)
+	syncer.MessagMap=make(map[int]map[string]*module.MessageInfo, 0)
+	module.MongodbConnect()
 	//初始化lotus
 	syncer.LotusInit()
 	//初始化实力
@@ -51,6 +53,13 @@ func main() {
 		fmt.Println(err)
 	}
 	fmt.Printf("server will listen %s 已经退出", localhost)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err = utils.Mdb.Client().Disconnect(ctx); err != nil {
+			panic(err)
+		}
+	}()
 }
 
 func gracefullShutdown(server *http.Server, quit <-chan os.Signal, done chan<- bool) {

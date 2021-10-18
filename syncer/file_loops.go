@@ -30,12 +30,12 @@ func (fs *Filscaner) handleNewHeaders(headers []*api.HeadChange) {
 		// 	//utils.Log.Tracef("---------------------------------这特么的是什么情况呢？tore.HCCurrent 当前高度为 %d---------------------------------", header.Val.Height())
 
 		// }
-		if header.Type == store.HCApply {
+		if header.Type == store.HCApply || header.Type == store.HCCurrent {
 			//utils.Log.Traceln("这特么的是什么情况呢？ store.HCApply")
 
 			// fs.handleApplyTippet(header.Val, nil)
 			// fs.lastApplyTippet = header.Val
-			fs.HandleLotusData(header.Val,nil)
+			fs.HandleLotusData(header.Val, nil)
 		}
 	}
 }
@@ -54,12 +54,13 @@ func (fs *Filscaner) HandleLotusData(child, parent *types.TipSet) {
 
 	blockMessage, err := fs.buildPersistenceData(child, parent)
 	if err != nil {
-		utils.Log.Errorf(" build_persistence_data(child:%d, parent:%d) failed, message:%s",child.Height(), parent.Height(), err.Error())
+		utils.Log.Errorf(" build_persistence_data(child:%d, parent:%d) failed, message:%s", child.Height(), parent.Height(), err.Error())
 		return
 	}
+	return
 	utils.Log.Tracef(" build_persistence_data(child:%d, parent:%d) ", child.Height(), parent.Height())
 	if err := blockMessage.modelsUpsert(); err != nil {
-		utils.Log.Errorf("error, Tipset_block_messages.models_upsert failed, message:%s",err.Error())
+		utils.Log.Errorf("error, Tipset_block_messages.models_upsert failed, message:%s", err.Error())
 		return
 	}
 
