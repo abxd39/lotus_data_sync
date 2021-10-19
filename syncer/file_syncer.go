@@ -395,13 +395,13 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) 
 		sy.Created = time.Now().Unix()
 		utils.Log.Tracef(" block_cid=%s height=%d", block.Cid(), block.Height)
 		if err = new(module.SyncInfo).InsertOne(sy); err != nil {
-			utils.Log.Errorln(err)
+			//utils.Log.Errorln(err)
 			continue
 		}
 		utils.Log.Tracef(" block_cid=%s height=%d", block.Cid(), block.Height)
 
 		if err = new(module.BlockMsg).InsertMany(msg); err != nil { 
-			utils.Log.Errorln(err)
+			//utils.Log.Errorln(err)
 			continue
 		}
 

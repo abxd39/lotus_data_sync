@@ -89,7 +89,7 @@ func (b *BlockMsg) InsertMany(param BlockMsg) error {
 	res, err := utils.Mdb.Collection(BlockMsgCollection).InsertOne(context.TODO(), doc)
 	if err != nil {
 	//	utils.Log.Errorln(err)
-		utils.Log.Errorf("block_cid=%s height=%d",param.BlockCid,param.Height)
+		//utils.Log.Errorf("block_cid=%s height=%d",param.BlockCid,param.Height)
 		return err
 	}
 	utils.Log.Tracef("%+v", res)

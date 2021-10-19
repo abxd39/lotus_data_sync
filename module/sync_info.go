@@ -3,6 +3,7 @@ package module
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"lotus_data_sync/utils"
@@ -11,7 +12,7 @@ import (
 
 type SyncInfo struct {
 	BlockCid string `json:"block_cid,omitempty"`
-	Height  int64  `json:"height,omitempty"`
+	Height   int64  `json:"height,omitempty"`
 	Created  int64  `json:"created,omitempty"`
 }
 
@@ -59,4 +60,28 @@ func (s *SyncInfo) InsertOne(param SyncInfo) error {
 	}
 	utils.Log.Tracef("%+v", res)
 	return nil
+}
+
+func (s *SyncInfo) ExistOfHeight(height int) bool {
+	var id primitive.ObjectID
+	opts := options.FindOne().SetSort(bson.D{{"height", 1}})
+	var result bson.M
+	err := utils.Mdb.Collection(SyncInfoCollection).FindOne(
+		context.TODO(),
+		bson.D{{"height", height}},
+		opts,
+	).Decode(&result)
+	if err != nil {
+		// ErrNoDocuments means that the filter did not match any documents in
+		// the collection.
+		if err == mongo.ErrNoDocuments {
+			return false
+		}
+		utils.Log.Errorln(err)
+		return false
+	}
+	//utils.Log.Errorln(result)
+	utils.Log.Traceln(id.String())
+	return true
+
 }

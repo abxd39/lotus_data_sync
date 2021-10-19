@@ -23,10 +23,48 @@ func MongodbConnect() {
 	ctx, cancel = context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	err = client.Ping(ctx, readpref.Primary())
+	if err != nil {
+		panic(err)
+	}
 	utils.Mdb = client.Database(mongoDB)
 	CreateBlockMsgIndex()
 	CreateSyncInfoIndex()
 	//CreateBlockIndex()
+	go CheckConnect(context.TODO())
+}
+
+//mongodb 健康检测
+func CheckConnect(ctx context.Context) {
+	ping := time.NewTicker(time.Second * 10)
+	notify := make(chan int)
+	for {
+		select {
+		case _, ok := <-notify:
+			{
+				if !ok {
+					//通道没有关闭
+					MongodbConnect() //重新连接
+				}
+			}
+		case <-ping.C:
+			{
+				//检测连接的健康状况
+				ctx, _ = context.WithTimeout(context.Background(), 2*time.Second)
+				if err := utils.Mdb.Client().Ping(ctx, readpref.Primary()); err != nil {
+					utils.Log.Errorln(err)
+					notify <- 1
+				}
+			
+			}
+		case <-ctx.Done():
+			{
+				ping.Stop()
+				close(notify)
+				return
+			}
+		}
+	}
+
 }
 
 func CreateMsgIndex() {

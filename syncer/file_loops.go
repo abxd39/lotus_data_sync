@@ -1,11 +1,14 @@
 package syncer
 
 import (
+	"context"
+	"lotus_data_sync/module"
+	"lotus_data_sync/utils"
+	"time"
+
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/chain/store"
 	"github.com/filecoin-project/lotus/chain/types"
-	"lotus_data_sync/utils"
-	"time"
 )
 
 func (fs *Filscaner) displayNotifi(header *api.HeadChange) {
@@ -52,18 +55,52 @@ func (fs *Filscaner) HandleLotusData(child, parent *types.TipSet) {
 		}
 	}
 
-	blockMessage, err := fs.buildPersistenceData(child, parent)
-	if err != nil {
-		utils.Log.Errorf(" build_persistence_data(child:%d, parent:%d) failed, message:%s", child.Height(), parent.Height(), err.Error())
-		return
-	}
-	return
-	utils.Log.Tracef(" build_persistence_data(child:%d, parent:%d) ", child.Height(), parent.Height())
-	if err := blockMessage.modelsUpsert(); err != nil {
-		utils.Log.Errorf("error, Tipset_block_messages.models_upsert failed, message:%s", err.Error())
+	if child.Parents().String() != parent.Key().String() {
+		utils.Log.Errorf("child(%d, %s).parentkey(%s)!=tipset(%d).key(%s)",
+			child.Height(), child.Key().String(), child.Parents().String(),
+			parent.Height(), parent.Key().String())
 		return
 	}
 
+	childKeys := child.Key().Cids()
+
+	if len(childKeys) == 0 {
+		utils.Log.Errorf("tipset(%d, %s) have no blocks", child.Height(), child.Key().String())
+		return
+	}
+	fs.apiTipsetBlockMessagesAndReceiptsNew(parent)
+
+}
+
+//历史高度同步。根据差异同步差异
+func (fs *Filscaner) SyncHistoryLotusData() {
+	//查询差异
+	f := func() {
+		time.Sleep(time.Duration(1) * time.Minute) //先休息一下
+		if Headtip, err := fs.api.ChainHead(context.TODO()); err != nil {
+			panic(err)
+		} else {
+			height := Headtip.Height()
+			//查表判断缺的
+			for true {
+				if !new(module.SyncInfo).ExistOfHeight(int(height)) {
+					tip, err := fs.api.ChainGetTipSetByHeight(context.TODO(), height, types.EmptyTSK)
+					if err != nil {
+						utils.Log.Errorln(err)
+						goto Tail
+					}
+					fs.apiTipsetBlockMessagesAndReceiptsNew(tip)
+
+				}
+
+			Tail:
+				time.Sleep(time.Second * 5)
+				height -= 1
+			} //for true
+
+		}
+	}
+	go f()
 }
 
 func (fs *Filscaner) handleFirstApplyTippet(child, parent *types.TipSet) {

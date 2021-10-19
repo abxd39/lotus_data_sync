@@ -62,6 +62,9 @@ func (fs *Filscaner) TaskStartSyncer() {
 				goto reRunSyncer
 			}
 			utils.Log.Errorf("run_syncer error, message:%s", err.Error())
+			//休息一下重新连接
+			time.Sleep(time.Second*10)
+			LotusInit()
 		}
 
 		fs.waitGroup.Done()
