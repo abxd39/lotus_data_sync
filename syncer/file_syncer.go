@@ -7,12 +7,17 @@ import (
 	"fmt"
 	"lotus_data_sync/utils"
 
-	"github.com/filecoin-project/go-state-types/abi"
+	"strconv"
+	"time"
 
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/lotus/blockstore"
+	"github.com/filecoin-project/lotus/chain/actors/adt"
+	"github.com/filecoin-project/lotus/chain/actors/builtin/reward"
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/ipfs/go-cid"
-
-	"time"
+	cbor "github.com/ipfs/go-ipld-cbor"
 )
 
 // TODO: use fs.api.StateChangedActors(),
@@ -113,26 +118,31 @@ func (fs *Filscaner) syncTipsetCacheFallThrough(child, parent *types.TipSet) (*t
 }
 
 //upload apiBlockRewards
-func (fs *Filscaner) apiBlockRewards(tipset types.TipSetKey) string {
-	// rewardActor, err := fs.api.StateGetActor(fs.ctx, reward.Address, tipset)
-	// if err != nil {
-	// 	return "0.0"
-	// }
-	// rewardActorState, err := reward.Load(cwutil.NewAPIIpldStore(fs.ctx, fs.api), rewardActor)
-	// if err != nil {
-	// 	return "0.0"
-	// }
-	// // fmt.Println(rewardActorState)
+func (fs *Filscaner) apiBlockRewards(add string, ipset types.TipSetKey) string {
+	addr, err := address.NewFromString(add)
+	rewardActor, err := fs.api.StateGetActor(fs.ctx, addr, ipset)
+	if err != nil {
+		utils.Log.Errorln(err)
+		return "0.0"
+	}
+	tbs := blockstore.NewTieredBstore(blockstore.NewAPIBlockstore(fs.api), blockstore.NewMemory())
+	rewardActorState, err := reward.Load(adt.WrapStore(fs.ctx, cbor.NewCborStore(tbs)), rewardActor)
+	if err != nil {
+		utils.Log.Errorln(err)
+		return "0.0"
+	}
+	// fmt.Println(rewardActorState)
 
-	// ThisEpochReward, err := rewardActorState.ThisEpochReward()
-	// if err != nil {
-	// 	return "0.0"
-	// }
+	ThisEpochReward, err := rewardActorState.ThisEpochReward()
+	if err != nil {
+		utils.Log.Errorln(err)
+		return "0.0"
+	}
 
-	// Reward, _ := strconv.ParseFloat(ThisEpochReward.String(), 64)
-	// P := 5.0 * 10000000000
-	// f := Reward / P / 100000000
-	return fmt.Sprintf("%.16f", 1.000)
+	Reward, _ := strconv.ParseFloat(ThisEpochReward.String(), 64)
+	P := 5.0 * 10000000000
+	f := Reward / P / 100000000
+	return fmt.Sprintf("%.16f", f)
 
 }
 func (fs *Filscaner) syncTipsetWithRange(last_ *types.TipSet, head_height, foot_height uint64) (*types.TipSet, error) {
@@ -306,10 +316,11 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceipts(tipset *types.TipSet, chi
 		} else {
 			return nil, err
 		}
+		tpstBlms.BlockRwds = fs.apiBlockRewards(block.Miner.String(), tipset.Key())
 	}
 	tpstBlms.Tipset = tipset
 	//BlockRewards
-	tpstBlms.BlockRwds = fs.apiBlockRewards(tipset.Key())
+
 	tpstBlms.Messages, err = fs.api.ChainGetParentMessages(fs.ctx, childCid)
 	if err != nil {
 		utils.Log.Errorf("err ChainGetParentMessages:%v", err)
@@ -328,20 +339,57 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceipts(tipset *types.TipSet, chi
 }
 
 var MessagMap map[int]map[string]*module.MessageInfo
+var BlockMap map[int]map[string]*module.FilscanBlock
 
 func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) error {
 	var err error
 	var msg module.BlockMsg
 	var blocks = tipset.Blocks()
 	//uniqueMap := make(map[string]*module.MessageInfo, 0)
-	heightPre := 0
-	if _, ok := MessagMap[int(tipset.Height())]; !ok {
-		MessagMap[int(tipset.Height())] = make(map[string]*module.MessageInfo)
+	height := int(tipset.Height())
+	if _, ok := MessagMap[height]; !ok {
+		MessagMap[height] = make(map[string]*module.MessageInfo)
+	}
+	if _, ok := BlockMap[height]; !ok {
+		BlockMap[height] = make(map[string]*module.FilscanBlock)
 	}
 	for _, block := range blocks {
+		if _, ok := BlockMap[height][block.Cid().String()]; !ok {
+			//在此整理block 信息
+			now := time.Now().Unix()
+			blockData, _ := block.Serialize()
+			fsBlock := &module.FilscanBlock{
+				Cid:         block.Cid().String(),
+				BlockHeader: block,
+				//MsgCids:     b.BlkMsgs.Cids,
+				GmtCreate:   int64(block.Timestamp),
+				GmtModified: now,
+				Size:        int64(len(blockData)),
+				BlockReward: fs.apiBlockRewards(block.Miner.String(), tipset.Key()),
+			}
+			BlockMap[height][block.Cid().String()] = fsBlock
+			fsBlock.InsertMany(fsBlock)
+		}
+		childCid := tipset.Cids()[0]
+		Messages, err := fs.api.ChainGetParentMessages(fs.ctx, childCid)
+		if err != nil {
+			utils.Log.Errorf("err ChainGetParentMessages:%v", err)
+			continue
+		}
+		utils.Log.Tracef("block_cid=%s 消息个数为%d", childCid, len(Messages))
+		Receipts, err := fs.api.ChainGetParentReceipts(fs.ctx, childCid)
+		if err != nil {
+			utils.Log.Errorf("ChainGetParentReceipts:%v", err)
+			continue
+		}
+		receipt_ref := make(map[string]*types.MessageReceipt)
+		for index, receipt := range Receipts {
+			receipt_ref[Messages[index].Cid.String()] = receipt
+		}
+
 		//如何去重
 		msg.Msg = make([]*module.MessageInfo, 0)
-		heightPre = int(block.Height)
+
 		if m, err := fs.api.ChainGetBlockMessages(fs.ctx, block.Cid()); err == nil {
 			msg.BlockCid = block.Cid().String()
 			msg.Crated = time.Now().Unix()
@@ -360,10 +408,14 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) 
 				minfo.Params = v.Params
 				minfo.GasPremium = v.GasPremium.Int64()
 				minfo.Value = v.Value.Int64()
+				minfo.Timestamp = int64(block.Timestamp)
+				minfo.GasUsage = receipt_ref[minfo.Cid].GasUsed
 				//uniqueMap[minfo.Cid] = &minfo
-
-				if _, ok := MessagMap[int(block.Height)][minfo.Cid]; !ok {
-					MessagMap[int(block.Height)][minfo.Cid] = &minfo
+				if minfo.GasUsage == 0 {
+					utils.Log.Errorf("block_cid=%s msg_cid=%s GasUsage=0", block.Cid().String(), minfo.Cid)
+				}
+				if _, ok := MessagMap[height][minfo.Cid]; !ok {
+					MessagMap[height][minfo.Cid] = &minfo
 					msg.Msg = append(msg.Msg, &minfo)
 				}
 			}
@@ -380,9 +432,13 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) 
 				minfo.Params = v.Message.Params
 				minfo.GasPremium = v.Message.GasPremium.Int64()
 				minfo.Value = v.Message.Value.Int64()
-
-				if _, ok := MessagMap[int(block.Height)][minfo.Cid]; !ok {
-					MessagMap[int(block.Height)][minfo.Cid] = &minfo
+				minfo.Timestamp = int64(block.Timestamp)
+				minfo.GasUsage = receipt_ref[minfo.Cid].GasUsed
+				if minfo.GasUsage == 0 {
+					utils.Log.Errorf("block_cid=%s msg_cid=%s GasUsage=0", block.Cid().String(), minfo.Cid)
+				}
+				if _, ok := MessagMap[height][minfo.Cid]; !ok {
+					MessagMap[height][minfo.Cid] = &minfo
 					msg.Msg = append(msg.Msg, &minfo)
 				}
 
@@ -391,24 +447,24 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) 
 		//入库
 		var sy module.SyncInfo
 		sy.BlockCid = block.Cid().String()
-		sy.Height = int64(block.Height)
+		sy.Height = int64(height)
 		sy.Created = time.Now().Unix()
-		utils.Log.Tracef(" block_cid=%s height=%d", block.Cid(), block.Height)
+		utils.Log.Tracef(" block_cid=%s height=%d", block.Cid(), height)
 		if err = new(module.SyncInfo).InsertOne(sy); err != nil {
 			//utils.Log.Errorln(err)
 			continue
 		}
-		utils.Log.Tracef(" block_cid=%s height=%d", block.Cid(), block.Height)
+		utils.Log.Tracef(" block_cid=%s height=%d", block.Cid(), height)
 
-		if err = new(module.BlockMsg).InsertMany(msg); err != nil { 
+		if err = new(module.BlockMsg).InsertMany(msg); err != nil {
 			//utils.Log.Errorln(err)
 			continue
 		}
 
 	}
 	//if _, ok := mm[heightPre-1]; ok {
-	delete(MessagMap, heightPre-1)
-
+	delete(MessagMap, height-1)
+	delete(BlockMap, height-1)
 	//}
 	return err
 }

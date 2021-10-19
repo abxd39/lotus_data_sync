@@ -30,18 +30,18 @@ func main() {
 	utils.SetupLogger()
 	//初始化mongodb
 	//module.MongodbInit(utils.Initconf)
-	syncer.MessagMap=make(map[int]map[string]*module.MessageInfo, 0)
+	syncer.MessagMap = make(map[int]map[string]*module.MessageInfo, 0)
+	syncer.BlockMap = make(map[int]map[string]*module.FilscanBlock, 0)
 	module.MongodbConnect()
 	//初始化lotus
 	syncer.LotusInit()
 	//初始化实力
-	syncer.NewInstance(context.TODO(),utils.LotusApi)
+	syncer.NewInstance(context.TODO(), utils.LotusApi)
 	//初始化缓存
 	if err := Inst.Init(context.TODO(), utils.LotusApi); err != nil {
 		utils.Log.Traceln("error ", err)
 		panic(err)
 	}
-	
 
 	Inst.Run()
 	local := utils.Initconf.String("Local")
@@ -49,7 +49,7 @@ func main() {
 	utils.Log.Traceln("Init() ok , loacl=", local, len(local))
 	localhost := utils.Initconf.String("httpport")
 	utils.Log.Traceln(fmt.Sprintf("server will listen %s", localhost))
-	if err:=http.ListenAndServe(localhost, nil) ;err!=nil{//🔥图服务
+	if err := http.ListenAndServe(localhost, nil); err != nil { //🔥图服务
 		fmt.Println(err)
 	}
 	fmt.Printf("server will listen %s 已经退出", localhost)

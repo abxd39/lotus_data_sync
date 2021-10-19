@@ -48,7 +48,7 @@ func (b *BlockMessage) fsBlock() *module.FilscanBlock {
 	fsBlock := &module.FilscanBlock{
 		Cid:         b.Block.Cid().String(),
 		BlockHeader: b.Block,
-		MsgCids:     b.BlkMsgs.Cids,
+		//MsgCids:     b.BlkMsgs.Cids,
 		GmtCreate:   now,
 		GmtModified: now,
 		Size:        int64(len(blockData)),

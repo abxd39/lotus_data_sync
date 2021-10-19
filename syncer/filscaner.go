@@ -5,10 +5,10 @@ import (
 	"errors"
 	"log"
 
+	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/api/v1api"
 	"github.com/filecoin-project/lotus/chain/types"
-
 	//"github.com/filecoin-project/node/config"
 	"lotus_data_sync/force/factors"
 	"lotus_data_sync/module"
@@ -69,6 +69,7 @@ type Filscaner struct {
 //var Inst = &Filscaner{ }
 var Inst = &Filscaner{}
 var LotusCommonApi api.Common
+var lotusStop jsonrpc.ClientCloser
 
 func NewInstance(ctx context.Context, lotusApi v1api.FullNode) (*Filscaner, error) {
 	filscaner := &Filscaner{}
@@ -186,15 +187,16 @@ func LotusInit() {
 	cli, stopper, err := client.NewFullNodeRPCV1(context.TODO(), "ws://"+lotusGetWay+"/rpc/v0", nil)
 	if err != nil {
 		utils.Log.Errorln("get lotus connect err, ,err=[%v]", err)
-		defer stopper()
+		panic(err)
 	} else {
 
 		utils.LotusApi = cli
+		lotusStop = stopper
 	}
 	commonClient, commonStopper, err := client.NewCommonRPCV0(context.TODO(), "ws://"+lotusGetWay+"/rpc/v0", nil)
 	if err != nil {
 		log.Panicf("get lotus commonClient connect err, ,err=[ %v ]", err)
-		defer commonStopper()
+		panic(err)
 	} else {
 		peerId, err := cli.ID(context.TODO())
 		if err != nil {
@@ -204,7 +206,6 @@ func LotusInit() {
 			utils.Log.Infof("connect lotus success,peerId=[ %v ]", peerId)
 			LotusCommonApi = commonClient
 			utils.Log.Infof("connect lotus success,peerId,other:=[ %v ]", peerId)
-
 		}
 	}
 }

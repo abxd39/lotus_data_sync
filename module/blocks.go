@@ -24,7 +24,7 @@ type BlockAndMsg struct {
 type FilscanBlock struct {
 	Cid         string             `bson:"cid" json:"cid"`
 	BlockHeader *types.BlockHeader `bson:"block_header" json:"block_header"`
-	MsgCids     []cid.Cid          `bson:"msg_cids" json:"msg_cids"`
+	//MsgCids     []cid.Cid          `bson:"msg_cids" json:"msg_cids"`
 	BlockReward string             `bson:"block_reword" json:"block_reword"`
 	Size        int64              `bson:"size" json:"size"`
 	IsMaster    int                `bson:"is_master" json:"is_master"`

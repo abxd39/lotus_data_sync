@@ -9,6 +9,7 @@ require (
 	github.com/astaxie/beego v1.12.3
 	github.com/fatih/color v1.9.0
 	github.com/filecoin-project/go-address v0.0.5
+	github.com/filecoin-project/go-jsonrpc v0.1.4-0.20210217175800-45ea43ac2bec
 	github.com/filecoin-project/go-state-types v0.1.1-0.20210915140513-d354ccf10379
 	github.com/filecoin-project/lotus v1.12.0
 	github.com/filecoin-project/specs-actors v0.9.14
@@ -18,6 +19,7 @@ require (
 	github.com/ipfs/go-block-format v0.0.3
 	github.com/ipfs/go-cid v0.1.0
 	github.com/ipfs/go-ipfs-blockstore v1.0.4
+	github.com/ipfs/go-ipld-cbor v0.0.5
 	github.com/ipfs/go-log v1.0.5
 	github.com/libp2p/go-libp2p-core v0.8.6
 	github.com/natefinch/lumberjack v2.0.0+incompatible
@@ -58,7 +60,6 @@ require (
 	github.com/filecoin-project/go-hamt-ipld v0.1.5 // indirect
 	github.com/filecoin-project/go-hamt-ipld/v2 v2.0.0 // indirect
 	github.com/filecoin-project/go-hamt-ipld/v3 v3.1.0 // indirect
-	github.com/filecoin-project/go-jsonrpc v0.1.4-0.20210217175800-45ea43ac2bec // indirect
 	github.com/filecoin-project/go-padreader v0.0.0-20210723183308-812a16dc01b1 // indirect
 	github.com/filecoin-project/go-statemachine v1.0.1 // indirect
 	github.com/filecoin-project/go-statestore v0.1.1 // indirect
@@ -96,7 +97,6 @@ require (
 	github.com/ipfs/go-ipfs-http-client v0.0.5 // indirect
 	github.com/ipfs/go-ipfs-posinfo v0.0.1 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
-	github.com/ipfs/go-ipld-cbor v0.0.5 // indirect
 	github.com/ipfs/go-ipld-format v0.2.0 // indirect
 	github.com/ipfs/go-log/v2 v2.3.0 // indirect
 	github.com/ipfs/go-merkledag v0.3.2 // indirect
