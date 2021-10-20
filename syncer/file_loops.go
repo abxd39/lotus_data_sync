@@ -68,7 +68,7 @@ func (fs *Filscaner) HandleLotusData(child, parent *types.TipSet) {
 		utils.Log.Errorf("tipset(%d, %s) have no blocks", child.Height(), child.Key().String())
 		return
 	}
-	fs.apiTipsetBlockMessagesAndReceiptsNew(parent)
+	fs.apiTipsetBlockMessagesAndReceiptsNew(parent, childKeys[0])
 
 }
 
@@ -82,14 +82,15 @@ func (fs *Filscaner) SyncHistoryLotusData() {
 		} else {
 			height := Headtip.Height()
 			//查表判断缺的
-			for true {
+			for {
 				if !new(module.SyncInfo).ExistOfHeight(int(height)) {
 					tip, err := fs.api.ChainGetTipSetByHeight(context.TODO(), height, types.EmptyTSK)
 					if err != nil {
 						utils.Log.Errorln(err)
 						goto Tail
+
 					}
-					fs.apiTipsetBlockMessagesAndReceiptsNew(tip)
+					fs.HandleLotusData(tip, nil)
 
 				}
 

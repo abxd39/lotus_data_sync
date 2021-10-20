@@ -162,7 +162,7 @@ func (fs *Filscaner) Run() {
 	//fs.TaskStartHandleMinerState()
 	//fs.Task_StartHandleMessage()
 	fs.TaskStartSyncer()
-	fs.SyncHistoryLotusData()
+	//fs.SyncHistoryLotusData()
 	//fs.TaskSyncTipsetRewardsDb()
 	//fs.TaskInitBlockRewards()
 }

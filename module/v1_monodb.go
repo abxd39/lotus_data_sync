@@ -43,6 +43,7 @@ func CheckConnect(ctx context.Context) {
 			{
 				if !ok {
 					//通道没有关闭
+					utils.Log.Errorln("mongodb 重连")
 					MongodbConnect() //重新连接
 				}
 			}

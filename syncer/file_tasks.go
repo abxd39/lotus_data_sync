@@ -65,6 +65,7 @@ func (fs *Filscaner) TaskStartSyncer() {
 			//休息一下重新连接
 			time.Sleep(time.Second*10)
 			LotusInit()
+			goto reRunSyncer
 		}
 
 		fs.waitGroup.Done()

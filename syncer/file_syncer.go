@@ -3,15 +3,15 @@ package syncer
 import (
 	"context"
 	"lotus_data_sync/module"
+	"strings"
 
 	"fmt"
 	"lotus_data_sync/utils"
 
-	"strconv"
 	"time"
 
-	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/lotus/blockstore"
 	"github.com/filecoin-project/lotus/chain/actors/adt"
 	"github.com/filecoin-project/lotus/chain/actors/builtin/reward"
@@ -118,9 +118,8 @@ func (fs *Filscaner) syncTipsetCacheFallThrough(child, parent *types.TipSet) (*t
 }
 
 //upload apiBlockRewards
-func (fs *Filscaner) apiBlockRewards(add string, ipset types.TipSetKey) string {
-	addr, err := address.NewFromString(add)
-	rewardActor, err := fs.api.StateGetActor(fs.ctx, addr, ipset)
+func (fs *Filscaner) apiBlockRewards(ipset types.TipSetKey) string {
+	rewardActor, err := fs.api.StateGetActor(fs.ctx, reward.Address, ipset)
 	if err != nil {
 		utils.Log.Errorln(err)
 		return "0.0"
@@ -139,10 +138,15 @@ func (fs *Filscaner) apiBlockRewards(add string, ipset types.TipSetKey) string {
 		return "0.0"
 	}
 
-	Reward, _ := strconv.ParseFloat(ThisEpochReward.String(), 64)
-	P := 5.0 * 10000000000
-	f := Reward / P / 100000000
-	return fmt.Sprintf("%.16f", f)
+	//Reward, _ := strconv.ParseFloat(ThisEpochReward.String(), 64)
+	// P := 5.0 * 10000000000
+	// f := Reward / P / 100000000
+	fil := big.Div(ThisEpochReward, big.NewInt(5))
+
+	utils.Log.Tracef("爆块奖励为%v", types.FIL(fil).Short())
+	str := types.FIL(fil).Short()
+	index := strings.Index(str, "FIL")
+	return types.FIL(fil).Short()[:index]
 
 }
 func (fs *Filscaner) syncTipsetWithRange(last_ *types.TipSet, head_height, foot_height uint64) (*types.TipSet, error) {
@@ -192,7 +196,7 @@ func (fs *Filscaner) buildPersistenceData(child, parent *types.TipSet) (*TipsetB
 		return nil, fmt.Errorf("tipset(%d, %s) have no blocks",
 			child.Height(), child.Key().String())
 	}
-	fs.apiTipsetBlockMessagesAndReceiptsNew(parent)
+	fs.apiTipsetBlockMessagesAndReceiptsNew(parent, childKeys[0])
 	return fs.apiTipsetBlockMessagesAndReceipts(parent, childKeys[0])
 }
 
@@ -316,7 +320,7 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceipts(tipset *types.TipSet, chi
 		} else {
 			return nil, err
 		}
-		tpstBlms.BlockRwds = fs.apiBlockRewards(block.Miner.String(), tipset.Key())
+		tpstBlms.BlockRwds = fs.apiBlockRewards(tipset.Key())
 	}
 	tpstBlms.Tipset = tipset
 	//BlockRewards
@@ -341,7 +345,7 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceipts(tipset *types.TipSet, chi
 var MessagMap map[int]map[string]*module.MessageInfo
 var BlockMap map[int]map[string]*module.FilscanBlock
 
-func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) error {
+func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet, childCid cid.Cid) error {
 	var err error
 	var msg module.BlockMsg
 	var blocks = tipset.Blocks()
@@ -353,6 +357,7 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) 
 	if _, ok := BlockMap[height]; !ok {
 		BlockMap[height] = make(map[string]*module.FilscanBlock)
 	}
+
 	for _, block := range blocks {
 		if _, ok := BlockMap[height][block.Cid().String()]; !ok {
 			//在此整理block 信息
@@ -365,28 +370,32 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) 
 				GmtCreate:   int64(block.Timestamp),
 				GmtModified: now,
 				Size:        int64(len(blockData)),
-				BlockReward: fs.apiBlockRewards(block.Miner.String(), tipset.Key()),
+				BlockReward: fs.apiBlockRewards(tipset.Key()),
 			}
 			BlockMap[height][block.Cid().String()] = fsBlock
 			fsBlock.InsertMany(fsBlock)
+		} else {
+			utils.Log.Traceln("重复的block")
+			return nil
 		}
-		childCid := tipset.Cids()[0]
+
 		Messages, err := fs.api.ChainGetParentMessages(fs.ctx, childCid)
 		if err != nil {
 			utils.Log.Errorf("err ChainGetParentMessages:%v", err)
-			continue
+			return err
 		}
-		utils.Log.Tracef("block_cid=%s 消息个数为%d", childCid, len(Messages))
+		//utils.Log.Tracef("block_cid=%s 消息个数为%d", childCid, len(Messages))
 		Receipts, err := fs.api.ChainGetParentReceipts(fs.ctx, childCid)
 		if err != nil {
 			utils.Log.Errorf("ChainGetParentReceipts:%v", err)
-			continue
+			return err
 		}
+		//utils.Log.Tracef("block_cid=%s Receipts%d", childCid, len(Receipts))
 		receipt_ref := make(map[string]*types.MessageReceipt)
 		for index, receipt := range Receipts {
 			receipt_ref[Messages[index].Cid.String()] = receipt
 		}
-
+		//utils.Log.Traceln(receipt_ref)
 		//如何去重
 		msg.Msg = make([]*module.MessageInfo, 0)
 
@@ -409,11 +418,13 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) 
 				minfo.GasPremium = v.GasPremium.Int64()
 				minfo.Value = v.Value.Int64()
 				minfo.Timestamp = int64(block.Timestamp)
-				minfo.GasUsage = receipt_ref[minfo.Cid].GasUsed
-				//uniqueMap[minfo.Cid] = &minfo
-				if minfo.GasUsage == 0 {
-					utils.Log.Errorf("block_cid=%s msg_cid=%s GasUsage=0", block.Cid().String(), minfo.Cid)
+
+				if _, ok := receipt_ref[minfo.Cid]; !ok {
+					//utils.Log.Errorf("block_cid=%s msg_cid=%s GasUsage=0", block.Cid().String(), minfo.Cid)
+				} else {
+					minfo.GasUsage = receipt_ref[minfo.Cid].GasUsed
 				}
+
 				if _, ok := MessagMap[height][minfo.Cid]; !ok {
 					MessagMap[height][minfo.Cid] = &minfo
 					msg.Msg = append(msg.Msg, &minfo)
@@ -433,10 +444,12 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) 
 				minfo.GasPremium = v.Message.GasPremium.Int64()
 				minfo.Value = v.Message.Value.Int64()
 				minfo.Timestamp = int64(block.Timestamp)
-				minfo.GasUsage = receipt_ref[minfo.Cid].GasUsed
-				if minfo.GasUsage == 0 {
-					utils.Log.Errorf("block_cid=%s msg_cid=%s GasUsage=0", block.Cid().String(), minfo.Cid)
+				if _, ok := receipt_ref[minfo.Cid]; !ok {
+					//utils.Log.Errorf("block_cid=%s msg_cid=%s GasUsage=0", block.Cid().String(), minfo.Cid)
+				} else {
+					minfo.GasUsage = receipt_ref[minfo.Cid].GasUsed
 				}
+
 				if _, ok := MessagMap[height][minfo.Cid]; !ok {
 					MessagMap[height][minfo.Cid] = &minfo
 					msg.Msg = append(msg.Msg, &minfo)
