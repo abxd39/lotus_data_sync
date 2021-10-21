@@ -31,7 +31,7 @@ type TipsetBlockRewards struct {
 	Miners               map[string]*minersBlocksRewards `bson:"miners"`
 }
 
-func CreateMinerIndex() {
+func CreateMinerIndex_old() {
 	ms, c := Connect(MinerCollection)
 	defer ms.Close()
 

@@ -2,7 +2,9 @@ package syncer
 
 import (
 	"context"
+	"encoding/json"
 	"lotus_data_sync/module"
+	"strconv"
 	"strings"
 
 	"fmt"
@@ -146,7 +148,8 @@ func (fs *Filscaner) apiBlockRewards(ipset types.TipSetKey) string {
 	utils.Log.Tracef("爆块奖励为%v", types.FIL(fil).Short())
 	str := types.FIL(fil).Short()
 	index := strings.Index(str, "FIL")
-	return types.FIL(fil).Short()[:index]
+
+	return types.FIL(fil).Short()[:index-1]
 
 }
 func (fs *Filscaner) syncTipsetWithRange(last_ *types.TipSet, head_height, foot_height uint64) (*types.TipSet, error) {
@@ -196,8 +199,8 @@ func (fs *Filscaner) buildPersistenceData(child, parent *types.TipSet) (*TipsetB
 		return nil, fmt.Errorf("tipset(%d, %s) have no blocks",
 			child.Height(), child.Key().String())
 	}
-	fs.apiTipsetBlockMessagesAndReceiptsNew(parent, childKeys[0])
-	return fs.apiTipsetBlockMessagesAndReceipts(parent, childKeys[0])
+	fs.apiTipsetBlockMessagesAndReceiptsNew(child)                    //入库
+	return fs.apiTipsetBlockMessagesAndReceipts(parent, childKeys[0]) //计算Gas
 }
 
 //消息参数解析
@@ -344,8 +347,9 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceipts(tipset *types.TipSet, chi
 
 var MessagMap map[int]map[string]*module.MessageInfo
 var BlockMap map[int]map[string]*module.FilscanBlock
+var BlockMapGas map[int]map[string]*module.FilscanBlock
 
-func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet, childCid cid.Cid) error {
+func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) error {
 	var err error
 	var msg module.BlockMsg
 	var blocks = tipset.Blocks()
@@ -359,6 +363,7 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet, 
 	}
 
 	for _, block := range blocks {
+		param := &module.MinerCache{}
 		if _, ok := BlockMap[height][block.Cid().String()]; !ok {
 			//在此整理block 信息
 			now := time.Now().Unix()
@@ -374,27 +379,58 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet, 
 			}
 			BlockMap[height][block.Cid().String()] = fsBlock
 			fsBlock.InsertMany(fsBlock)
+			param.Addr = block.Miner.String()
+			param.Height = int64(height)
+			param.Timestamp = int64(block.Timestamp)
+			param.TotalBlock = 1
+			param.TotalRewards, _ = strconv.ParseFloat(fsBlock.BlockReward, 64)
+			Info, err := fs.api.StateMinerInfo(fs.ctx, block.Miner, tipset.Key())
+			if err != nil {
+				utils.Log.Errorln(err)
+			} else {
+				utils.Log.Tracef("%+v", Info)
+				param.SectorSize = Info.SectorSize.ShortString()
+				if !Info.Worker.Empty() {
+					param.Worker = Info.Worker.String()
+				} else {
+					utils.Log.Errorf("%s 没有查到 Worker id", param.Addr)
+				}
+				if !Info.Owner.Empty() {
+					param.Owner = Info.Owner.String()
+
+				} else {
+					utils.Log.Errorf("%s 没有查到Owner id", param.Addr)
+				}
+				if Info.PeerId != nil {
+					if Info.PeerId.Validate() == nil {
+						param.PeerId = Info.PeerId.String()
+					} else {
+						utils.Log.Errorf("%s 没有查到peer id", param.Addr)
+					}
+				}
+			}
+
 		} else {
 			utils.Log.Traceln("重复的block")
-			return nil
+			continue
 		}
 
-		Messages, err := fs.api.ChainGetParentMessages(fs.ctx, childCid)
-		if err != nil {
-			utils.Log.Errorf("err ChainGetParentMessages:%v", err)
-			return err
-		}
-		//utils.Log.Tracef("block_cid=%s 消息个数为%d", childCid, len(Messages))
-		Receipts, err := fs.api.ChainGetParentReceipts(fs.ctx, childCid)
-		if err != nil {
-			utils.Log.Errorf("ChainGetParentReceipts:%v", err)
-			return err
-		}
-		//utils.Log.Tracef("block_cid=%s Receipts%d", childCid, len(Receipts))
-		receipt_ref := make(map[string]*types.MessageReceipt)
-		for index, receipt := range Receipts {
-			receipt_ref[Messages[index].Cid.String()] = receipt
-		}
+		// Messages, err := fs.api.ChainGetParentMessages(fs.ctx, childCid)
+		// if err != nil {
+		// 	utils.Log.Errorf("err ChainGetParentMessages:%v", err)
+		// 	return err
+		// }
+		// utils.Log.Tracef("block_cid=%s 消息个数为%d", childCid, len(Messages))
+		// Receipts, err := fs.api.ChainGetParentReceipts(fs.ctx, childCid)
+		// if err != nil {
+		// 	utils.Log.Errorf("ChainGetParentReceipts:%v", err)
+		// 	return err
+		// }
+		// utils.Log.Tracef("block_cid=%s Receipts%d", childCid, len(Receipts))
+		// receipt_ref := make(map[string]*types.MessageReceipt)
+		// for index, receipt := range Receipts {
+		// 	receipt_ref[Messages[index].Cid.String()] = receipt
+		// }
 		//utils.Log.Traceln(receipt_ref)
 		//如何去重
 		msg.Msg = make([]*module.MessageInfo, 0)
@@ -403,7 +439,6 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet, 
 			msg.BlockCid = block.Cid().String()
 			msg.Crated = time.Now().Unix()
 			msg.Height = int64(block.Height)
-			//msg.Msg = append(msg.Msg, m.BlsMessages...)
 			for _, v := range m.BlsMessages {
 				minfo := module.MessageInfo{}
 				minfo.Cid = v.Cid().String()
@@ -412,23 +447,14 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet, 
 				minfo.Version = v.Version
 				minfo.GasFeeCap = v.GasFeeCap.Int64()
 				minfo.GasLimit = v.GasLimit
-				minfo.Method = v.Method
+				minfo.Method = int(v.Method)
 				minfo.Nonce = v.Nonce
 				minfo.Params = v.Params
 				minfo.GasPremium = v.GasPremium.Int64()
 				minfo.Value = v.Value.Int64()
 				minfo.Timestamp = int64(block.Timestamp)
+				msg.Msg = append(msg.Msg, &minfo)
 
-				if _, ok := receipt_ref[minfo.Cid]; !ok {
-					//utils.Log.Errorf("block_cid=%s msg_cid=%s GasUsage=0", block.Cid().String(), minfo.Cid)
-				} else {
-					minfo.GasUsage = receipt_ref[minfo.Cid].GasUsed
-				}
-
-				if _, ok := MessagMap[height][minfo.Cid]; !ok {
-					MessagMap[height][minfo.Cid] = &minfo
-					msg.Msg = append(msg.Msg, &minfo)
-				}
 			}
 			for _, v := range m.SecpkMessages {
 				minfo := module.MessageInfo{}
@@ -438,22 +464,13 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet, 
 				minfo.Version = v.Message.Version
 				minfo.GasFeeCap = v.Message.GasFeeCap.Int64()
 				minfo.GasLimit = v.Message.GasLimit
-				minfo.Method = v.Message.Method
+				minfo.Method = int(v.Message.Method)
 				minfo.Nonce = v.Message.Nonce
 				minfo.Params = v.Message.Params
 				minfo.GasPremium = v.Message.GasPremium.Int64()
 				minfo.Value = v.Message.Value.Int64()
 				minfo.Timestamp = int64(block.Timestamp)
-				if _, ok := receipt_ref[minfo.Cid]; !ok {
-					//utils.Log.Errorf("block_cid=%s msg_cid=%s GasUsage=0", block.Cid().String(), minfo.Cid)
-				} else {
-					minfo.GasUsage = receipt_ref[minfo.Cid].GasUsed
-				}
-
-				if _, ok := MessagMap[height][minfo.Cid]; !ok {
-					MessagMap[height][minfo.Cid] = &minfo
-					msg.Msg = append(msg.Msg, &minfo)
-				}
+				msg.Msg = append(msg.Msg, &minfo)
 
 			}
 		}
@@ -473,11 +490,103 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet, 
 			//utils.Log.Errorln(err)
 			continue
 		}
-
+		go fs.RedisCache(*param)
+		//new(module.Miner).Upsert(param)
 	}
 	//if _, ok := mm[heightPre-1]; ok {
-	delete(MessagMap, height-1)
+	//delete(MessagMap, height-1)
 	delete(BlockMap, height-1)
+
+	//}
+	return err
+}
+
+func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsGasUsage(tipset *types.TipSet, childCid cid.Cid) error {
+	var err error
+	var msg module.BlockMsg
+	var blocks = tipset.Blocks()
+	//uniqueMap := make(map[string]*module.MessageInfo, 0)
+	height := int(tipset.Height())
+	if _, ok := BlockMapGas[height]; !ok {
+		BlockMapGas[height] = make(map[string]*module.FilscanBlock)
+	}
+
+	for _, block := range blocks {
+		param := module.MinerCache{}
+		if _, ok := BlockMapGas[height][block.Cid().String()]; !ok {
+			//在此整理block 信息
+			BlockMapGas[height][block.Cid().String()] = &module.FilscanBlock{}
+			param.Addr = block.Miner.String()
+
+		} else {
+			continue
+		}
+
+		Messages, err := fs.api.ChainGetParentMessages(fs.ctx, childCid)
+		if err != nil {
+			utils.Log.Errorf("err ChainGetParentMessages:%v", err)
+			continue
+		}
+		//utils.Log.Tracef("block_cid=%s 消息个数为%d", childCid, len(Messages))
+		Receipts, err := fs.api.ChainGetParentReceipts(fs.ctx, childCid)
+		if err != nil {
+			utils.Log.Errorf("ChainGetParentReceipts:%v", err)
+			continue
+		}
+		//utils.Log.Tracef("block_cid=%s Receipts%d", childCid, len(Receipts))
+		receipt_ref := make(map[string]*types.MessageReceipt)
+		for index, receipt := range Receipts {
+			receipt_ref[Messages[index].Cid.String()] = receipt
+		}
+		//utils.Log.Traceln(receipt_ref)
+		//如何去重
+		//msg.Msg = make([]*module.MessageInfo, 0)
+
+		if m, err := fs.api.ChainGetBlockMessages(fs.ctx, block.Cid()); err == nil {
+			msg.BlockCid = block.Cid().String()
+			msg.Crated = time.Now().Unix()
+			msg.Height = int64(block.Height)
+			//msg.Msg = append(msg.Msg, m.BlsMessages...)
+			for _, v := range m.BlsMessages {
+				minfo := module.MessageInfo{}
+				minfo.Cid = v.Cid().String()
+
+				if _, ok := receipt_ref[minfo.Cid]; !ok {
+					//utils.Log.Errorf("block_cid=%s msg_cid=%s GasUsage=0", block.Cid().String(), minfo.Cid)
+				} else {
+					//minfo.GasUsage = receipt_ref[minfo.Cid].GasUsed
+					param.TotalGas += receipt_ref[minfo.Cid].GasUsed
+				}
+				// if _, ok := MessagMap[height][minfo.Cid]; !ok {
+				// 	MessagMap[height][minfo.Cid] = &minfo
+				//msg.Msg = append(msg.Msg, &minfo)
+				// }
+			}
+			for _, v := range m.SecpkMessages {
+				minfo := module.MessageInfo{}
+				minfo.Cid = v.Cid().String()
+				if _, ok := receipt_ref[minfo.Cid]; !ok {
+					//utils.Log.Errorf("block_cid=%s msg_cid=%s GasUsage=0", block.Cid().String(), minfo.Cid)
+				} else {
+					//minfo.GasUsage = receipt_ref[minfo.Cid].GasUsed
+					param.TotalGas += receipt_ref[minfo.Cid].GasUsed
+				}
+
+				// if _, ok := MessagMap[height][minfo.Cid]; !ok {
+				// 	MessagMap[height][minfo.Cid] = &minfo
+				//msg.Msg = append(msg.Msg, &minfo)
+				// }
+
+			}
+		}
+		//入库
+		go fs.RedisCache(param)
+		//new(module.Miner).Upsert(param)
+	}
+	//if _, ok := mm[heightPre-1]; ok {
+	//delete(MessagMap, height-1)
+	delete(BlockMapGas, height-1)
+
 	//}
 	return err
 }
@@ -526,4 +635,51 @@ func (fs *Filscaner) SelectBlockStatistics() {
 		}
 	}
 	utils.Log.Traceln("--------------查询数据库统计到统计表----> 结束-----------", time.Now().Format(utils.TimeString))
+}
+
+//一天写一次mongodb,有新的miner 就写一个空的结构到mongo
+const hsetNxKey = "hashminers"
+
+func (fs *Filscaner) RedisCache(param module.MinerCache) {
+	body, _ := json.Marshal(param)
+	if b, err := utils.Rdb16.SetNX(param.Addr, string(body), 0).Result(); err != nil {
+		utils.Log.Errorln(err)
+	} else if b {
+		//新的miner
+		utils.Rdb16.HSetNX(hsetNxKey, param.Addr, param.Tag) //保存所有的miner
+	} else {
+
+		//存在更新字段
+		body, err := utils.Rdb16.Get(param.Addr).Bytes()
+		if err != nil {
+			utils.Log.Errorln(err)
+			return
+		}
+		result := &module.MinerCache{}
+		if err = json.Unmarshal(body, result); err != nil {
+			utils.Log.Errorln(err)
+			return
+		}
+		if param.Height != 0 {
+
+			result.Height = param.Height
+		}
+		if param.PeerId != "" {
+
+			result.PeerId = param.PeerId
+		}
+		if param.Tag != "" {
+
+			result.Tag = param.Tag
+		}
+		if param.Timestamp != 0 {
+
+			result.Timestamp = param.Timestamp
+		}
+		result.TotalBlock += param.TotalBlock
+		result.TotalGas += param.TotalGas
+		result.TotalRewards += param.TotalRewards
+		resultBytes, _ := json.Marshal(result)
+		utils.Rdb16.Set(param.Addr, string(resultBytes), 0)
+	}
 }

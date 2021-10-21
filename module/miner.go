@@ -2,17 +2,17 @@ package module
 
 import (
 	"encoding/json"
-	"lotus_data_sync/utils"
 	"fmt"
 	"github.com/filecoin-project/go-address"
 	"github.com/globalsign/mgo"
 	"github.com/globalsign/mgo/bson"
+	"lotus_data_sync/utils"
 	"math/big"
 	"time"
 )
 
 const (
-	MinerCollection       = "miner"
+	MinerCollection_old   = "miner"
 	BlockRewardCollection = "block_reward"
 )
 

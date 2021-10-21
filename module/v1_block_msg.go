@@ -2,7 +2,6 @@ package module
 
 import (
 	"context"
-	"github.com/filecoin-project/go-state-types/abi"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -32,10 +31,10 @@ type MessageInfo struct {
 	GasFeeCap  int64 `json:"gas_fee_cap,omitempty"`
 	GasPremium int64 `json:"gas_premium,omitempty"`
 
-	Method    abi.MethodNum `json:"method,omitempty"`
-	Params    []byte        `json:"params,omitempty"`
-	GasUsage  int64         `json:"gas_usage,omitempty"`
-	Timestamp int64         `json:"timestamp,omitempty"`
+	Method int    `json:"method"`
+	Params []byte `json:"params,omitempty"`
+	//GasUsage  int64  `json:"gas_usage,omitempty"` //作废
+	Timestamp int64 `json:"timestamp,omitempty"`
 }
 
 const (
@@ -55,7 +54,7 @@ func CreateBlockMsgIndex() {
 		{
 			Keys: bson.D{{"msg.cid", 1}},
 			//Options: options.Index().SetName("nameAge"),
-			Options: options.Index().SetUnique(true).SetBackground(true),
+			Options: options.Index().SetUnique(false).SetBackground(true),
 		},
 		{
 			Keys:    bson.D{{"msg.From", 1}, {"msg.To", 1}},

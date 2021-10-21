@@ -30,6 +30,7 @@ func MongodbConnect() {
 	CreateBlockMsgIndex()
 	CreateSyncInfoIndex()
 	CreateBlockIndex()
+	CreateMinerIndex()
 	go CheckConnect(context.TODO())
 }
 

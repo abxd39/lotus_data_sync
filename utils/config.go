@@ -23,8 +23,8 @@ import (
 //}
 
 var LotusApi api.FullNode
-var Rdb0 *redis.Client
-var Rdb1 *redis.Client
+
+var Rdb16 *redis.Client
 
 var NotifyChan chan string
 

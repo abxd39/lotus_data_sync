@@ -28,11 +28,16 @@ func main() {
 	}
 	//日志
 	utils.SetupLogger()
+	//redis
+	utils.RedisInit()
 	//初始化mongodb
 	//module.MongodbInit(utils.Initconf)
-	syncer.MessagMap = make(map[int]map[string]*module.MessageInfo, 0)
-	syncer.BlockMap = make(map[int]map[string]*module.FilscanBlock, 0)
+	syncer.MessagMap = make(map[int]map[string]*module.MessageInfo)
+	syncer.BlockMap = make(map[int]map[string]*module.FilscanBlock)
+	syncer.BlockMapGas = make(map[int]map[string]*module.FilscanBlock)
+
 	module.MongodbConnect()
+
 	//初始化lotus
 	syncer.LotusInit()
 	//初始化实力

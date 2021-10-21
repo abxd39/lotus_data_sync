@@ -68,8 +68,9 @@ func (fs *Filscaner) HandleLotusData(child, parent *types.TipSet) {
 		utils.Log.Errorf("tipset(%d, %s) have no blocks", child.Height(), child.Key().String())
 		return
 	}
-	fs.apiTipsetBlockMessagesAndReceiptsNew(parent, childKeys[0])
 
+	fs.apiTipsetBlockMessagesAndReceiptsNew(child)
+	fs.apiTipsetBlockMessagesAndReceiptsGasUsage(parent, childKeys[0])
 }
 
 //历史高度同步。根据差异同步差异
