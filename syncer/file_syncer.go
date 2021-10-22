@@ -6,6 +6,7 @@ import (
 	"lotus_data_sync/module"
 	"strconv"
 	"strings"
+	"sync"
 
 	"fmt"
 	"lotus_data_sync/utils"
@@ -345,26 +346,29 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceipts(tipset *types.TipSet, chi
 
 }
 
-var MessagMap map[int]map[string]*module.MessageInfo
-var BlockMap map[int]map[string]*module.FilscanBlock
-var BlockMapGas map[int]map[string]*module.FilscanBlock
+//var MessagMap map[int]map[string]*module.MessageInfo
+
+
 
 func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) error {
 	var err error
 	var msg module.BlockMsg
 	var blocks = tipset.Blocks()
 	//uniqueMap := make(map[string]*module.MessageInfo, 0)
+	blockMap := make(map[string]*module.FilscanBlock)
 	height := int(tipset.Height())
-	if _, ok := MessagMap[height]; !ok {
-		MessagMap[height] = make(map[string]*module.MessageInfo)
+	b, err := utils.Rdb16.SetNX(tipset.Key().String(), "repeat block", 3600*time.Second).Result()
+	if err != nil {
+		utils.Log.Errorln(err)
+		return err
 	}
-	if _, ok := BlockMap[height]; !ok {
-		BlockMap[height] = make(map[string]*module.FilscanBlock)
+	if !b {
+		utils.Log.Tracef("tipset repeat key=%s", tipset.Key().String())
+		return nil
 	}
-
 	for _, block := range blocks {
 		param := &module.MinerCache{}
-		if _, ok := BlockMap[height][block.Cid().String()]; !ok {
+		if _, ok := blockMap[block.Cid().String()]; !ok {
 			//在此整理block 信息
 			now := time.Now().Unix()
 			blockData, _ := block.Serialize()
@@ -377,7 +381,7 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) 
 				Size:        int64(len(blockData)),
 				BlockReward: fs.apiBlockRewards(tipset.Key()),
 			}
-			BlockMap[height][block.Cid().String()] = fsBlock
+			blockMap[block.Cid().String()] = fsBlock
 			fsBlock.InsertMany(fsBlock)
 			param.Addr = block.Miner.String()
 			param.Height = int64(height)
@@ -415,23 +419,6 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) 
 			continue
 		}
 
-		// Messages, err := fs.api.ChainGetParentMessages(fs.ctx, childCid)
-		// if err != nil {
-		// 	utils.Log.Errorf("err ChainGetParentMessages:%v", err)
-		// 	return err
-		// }
-		// utils.Log.Tracef("block_cid=%s 消息个数为%d", childCid, len(Messages))
-		// Receipts, err := fs.api.ChainGetParentReceipts(fs.ctx, childCid)
-		// if err != nil {
-		// 	utils.Log.Errorf("ChainGetParentReceipts:%v", err)
-		// 	return err
-		// }
-		// utils.Log.Tracef("block_cid=%s Receipts%d", childCid, len(Receipts))
-		// receipt_ref := make(map[string]*types.MessageReceipt)
-		// for index, receipt := range Receipts {
-		// 	receipt_ref[Messages[index].Cid.String()] = receipt
-		// }
-		//utils.Log.Traceln(receipt_ref)
 		//如何去重
 		msg.Msg = make([]*module.MessageInfo, 0)
 
@@ -495,7 +482,7 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsNew(tipset *types.TipSet) 
 	}
 	//if _, ok := mm[heightPre-1]; ok {
 	//delete(MessagMap, height-1)
-	delete(BlockMap, height-1)
+	//delete(BlockMap, height-1)
 
 	//}
 	return err
@@ -505,17 +492,25 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsGasUsage(tipset *types.Tip
 	var err error
 	var msg module.BlockMsg
 	var blocks = tipset.Blocks()
-	//uniqueMap := make(map[string]*module.MessageInfo, 0)
-	height := int(tipset.Height())
-	if _, ok := BlockMapGas[height]; !ok {
-		BlockMapGas[height] = make(map[string]*module.FilscanBlock)
+	blockMapGas :=make(map[string]*module.FilscanBlock)
+	//height := int(tipset.Height())
+	
+	key := fmt.Sprintf("gas_%s", tipset.Key().String())
+	b, err := utils.Rdb16.SetNX(key, "repeat block", 3600*time.Second).Result()
+	if err != nil {
+		utils.Log.Errorln(err)
+		return err
+	}
+	if !b {
+		utils.Log.Tracef("tipset repeat key=%s", key)
+		return nil
 	}
 
 	for _, block := range blocks {
 		param := module.MinerCache{}
-		if _, ok := BlockMapGas[height][block.Cid().String()]; !ok {
+		if _, ok := blockMapGas[block.Cid().String()]; !ok {
 			//在此整理block 信息
-			BlockMapGas[height][block.Cid().String()] = &module.FilscanBlock{}
+			blockMapGas[block.Cid().String()] = &module.FilscanBlock{}
 			param.Addr = block.Miner.String()
 
 		} else {
@@ -585,7 +580,7 @@ func (fs *Filscaner) apiTipsetBlockMessagesAndReceiptsGasUsage(tipset *types.Tip
 	}
 	//if _, ok := mm[heightPre-1]; ok {
 	//delete(MessagMap, height-1)
-	delete(BlockMapGas, height-1)
+	//delete(BlockMapGas, height-1)
 
 	//}
 	return err
